@@ -11,7 +11,7 @@ on:
 
 jobs:
   code_quality:
-    runs-on: ubuntu-latest # GitHub-hosted runner with many pre-installed tools
+    runs-on: ubuntu-latest  # GitHub-hosted runner with many pre-installed tools
 
     steps:
       - name: Checkout repository
@@ -40,7 +40,9 @@ jobs:
         # Remove it for strict failure.
         run: |
           echo "--- Running Markdownlint ---"
-          markdownlint --config ./.github/linters/.markdownlint.jsonc '**/*.md' || true
+          markdownlint \
+            --config ./.github/linters/.markdownlint.jsonc \
+            '**/*.md' || true
 
       - name: Run YAML Linting
         # Assumes a .yamllint configuration file in your repository root.
@@ -51,13 +53,14 @@ jobs:
 
       - name: Run Shell Script Linting
         # Finds all .sh files and runs shellcheck.
-        # Customize the 'find' command if your scripts are in specific directories.
+        # Customize the 'find' command if your scripts are in specific dir
         run: |
           echo "--- Running Shellcheck ---"
-          find . -type f -name "*.sh" -exec shellcheck {} + || true
+          find . \
+            -type f -name "*.sh" -exec shellcheck {} + || true
 
-      - name: Check for Broken Links in Documentation (Example using linkchecker)
-        # You'll need to point this to your documentation root or specific files.
+      - name: Check for Broken Links in Documentation
+        # You'll need to point this to your documentation root or files.
         # This is a very basic example; you might need more sophisticated setup
         # for large docs. Linkchecker might require a configuration file.
         run: |
@@ -66,13 +69,14 @@ jobs:
           find . -type f -name "*.md" -print0 | xargs -0 linkchecker || true
           # Alternatively, check a specific documentation directory if it serves
           # HTML/Markdown
-          # linkchecker --config .linkcheckerrc https://your-docs-url.com || true
+          # linkchecker \
+            --config .linkcheckerrc https://your-docs-url.com || true
 
       - name: Verify Consistent Newlines (LF vs CRLF - basic check)
         run: |
           echo "--- Checking for Mixed Newlines ---"
           # This is a basic check; for precise control, use .gitattributes
-          # It finds files with both LF and CRLF, which can indicate mixed line endings.
+          # It finds files with both LF and CRLF, indicate mixed line endings.
           grep -P '\r\n.*[^\r]\n|\n.*[^\n]\r\n' . -r \
           --exclude-dir={.git,.github,node_modules,vendor} && \
           { echo "Mixed newlines found!"; exit 1; } || true
