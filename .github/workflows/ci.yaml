@@ -1,3 +1,4 @@
+--- 
 name: Generic Code Quality Checks
 
 on:
@@ -28,13 +29,15 @@ jobs:
           # For Shell Script linting:
           sudo apt-get install -y shellcheck
           # For checking broken links in documentation/markdown:
-          pip install rstcheck # Can check ReStructuredText and often has some link-checking
+          pip install rstcheck # Can check ReStructuredText
           pip install linkchecker # A dedicated link checker
 
       - name: Run Markdown Linting
-        # Adjust '--config' to your markdownlint config file path (e.g., .markdownlint.jsonc)
+        # Adjust '--config' to your markdownlint config file path
+        # (e.g., .markdownlint.jsonc)
         # Use '**/*.md' to check all markdown files.
-        # '|| true' allows the job to pass even if linting issues are found. Remove it for strict failure.
+        # '|| true' allows the job to pass even if linting issues are found.
+        # Remove it for strict failure.
         run: |
           echo "--- Running Markdownlint ---"
           markdownlint --config ./.github/linters/.markdownlint.jsonc '**/*.md' || true
@@ -55,21 +58,23 @@ jobs:
 
       - name: Check for Broken Links in Documentation (Example using linkchecker)
         # You'll need to point this to your documentation root or specific files.
-        # This is a very basic example; you might need more sophisticated setup for large docs.
-        # Linkchecker might require a configuration file (e.g., .linkcheckerrc)
+        # This is a very basic example; you might need more sophisticated setup
+        # for large docs. Linkchecker might require a configuration file.
         run: |
           echo "--- Running Link Checker ---"
           # Example: check links in all markdown files
           find . -type f -name "*.md" -print0 | xargs -0 linkchecker || true
-          # Alternatively, check a specific documentation directory if it serves HTML/Markdown
-          # linkchecker --config .linkcheckerrc https://your-docs-url.com || true # if docs are deployed
+          # Alternatively, check a specific documentation directory if it serves
+          # HTML/Markdown
+          # linkchecker --config .linkcheckerrc https://your-docs-url.com || true
 
       - name: Check for Trailing Whitespace (General)
         # Finds common text/code files and checks for trailing whitespace.
         run: |
           echo "--- Checking for Trailing Whitespace ---"
           # Exclude binary files or specific directories if needed
-          grep -r -P " +$" . --exclude-dir={.git,.github,node_modules,vendor} --exclude="*.bin" --exclude="*.log" && { echo "Trailing whitespace found!"; exit 1; } || true
+          grep -r -P " +$" . --exclude-dir={.git,.github,node_modules,vendor} \
+          --exclude="*.bin" --exclude="*.log" && { echo "Trailing whitespace found!"; exit 1; } || true
           echo "No trailing whitespace found."
 
       - name: Verify Consistent Newlines (LF vs CRLF - basic check)
@@ -77,7 +82,9 @@ jobs:
           echo "--- Checking for Mixed Newlines ---"
           # This is a basic check; for precise control, use .gitattributes
           # It finds files with both LF and CRLF, which can indicate mixed line endings.
-          grep -P '\r\n.*[^\r]\n|\n.*[^\n]\r\n' . -r --exclude-dir={.git,.github,node_modules,vendor} && { echo "Mixed newlines found!"; exit 1; } || true
+          grep -P '\r\n.*[^\r]\n|\n.*[^\n]\r\n' . -r \
+          --exclude-dir={.git,.github,node_modules,vendor} && \
+          { echo "Mixed newlines found!"; exit 1; } || true
           echo "Newline consistency looks good."
 
       - name: Check Large Files (Optional)
@@ -85,7 +92,8 @@ jobs:
           echo "--- Checking for large files ---"
           # Finds files larger than 10MB; adjust '10M' as needed.
           find . -type f -size +10M -print -exec du -h {} +
-          echo "If any large files were listed above, consider using Git LFS or excluding them."
+          echo "If any large files were listed above, consider using Git LFS or"
+          echo "excluding them."
 
       - name: Final Code Quality Review
         run: |
