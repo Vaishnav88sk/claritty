@@ -1,1 +1,1 @@
-## Claritty - Observability and Monitoring
+## Claritty
