@@ -3,10 +3,10 @@ name: Generic Code Quality Checks
 on:
   push:
     branches:
-      - master 
+      - master
   pull_request:
     branches:
-      - master 
+      - master
 
 jobs:
   code_quality:
