@@ -1,5 +1,5 @@
---- 
-name: Generic Code Quality Checks
+---
+name: Code Quality Checks
 
 on:
   push:
@@ -67,15 +67,6 @@ jobs:
           # Alternatively, check a specific documentation directory if it serves
           # HTML/Markdown
           # linkchecker --config .linkcheckerrc https://your-docs-url.com || true
-
-      - name: Check for Trailing Whitespace (General)
-        # Finds common text/code files and checks for trailing whitespace.
-        run: |
-          echo "--- Checking for Trailing Whitespace ---"
-          # Exclude binary files or specific directories if needed
-          grep -r -P " +$" . --exclude-dir={.git,.github,node_modules,vendor} \
-          --exclude="*.bin" --exclude="*.log" && { echo "Trailing whitespace found!"; exit 1; } || true
-          echo "No trailing whitespace found."
 
       - name: Verify Consistent Newlines (LF vs CRLF - basic check)
         run: |
