@@ -1,1 +1,4 @@
 .git/
+backend/claritty-backend
+backend/metrics.db
+claritty-agent/claritty-agent
