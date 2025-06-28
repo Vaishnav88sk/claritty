@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Claritty Gauge Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
+  <style>
+    body {
+      text-align: center;
+      font-family: Arial, sans-serif;
+      background-color: #f9f9f9;
+    }
+
+    h2 {
+      margin-bottom: 10px;
+    }
+
+    .dashboard {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      flex-wrap: wrap;
+      max-width: 75vw;
+      margin: 0 auto;
+    }
+
+    .chart-container {
+      width: 300px;
+    }
+
+    canvas {
+      width: 100% !important;
+      height: auto !important;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Cluster Metrics Dashboard</h1>
+  <div class="dashboard">
+    <div class="chart-container">
+      <h2>CPU Usage</h2>
+      <canvas id="cpuGauge" width="300" height="300"></canvas>
+    </div>
+    <div class="chart-container">
+      <h2>Memory Usage</h2>
+      <canvas id="memoryGauge" width="300" height="300"></canvas>
+    </div>
+  </div>
+
+  <script>
+    async function fetchMetrics() {
+      const res = await fetch("http://ec2-15-207-109-175.ap-south-1.compute.amazonaws.com:8088/api/metrics");
+      const data = await res.json();
+      const latest = data[0];
+
+      const maxCPU = 2;       // Assume 2 CPU cores
+      const maxMemory = 1024; // Assume 1 GB memory
+
+      updateGauge(cpuChart, latest.cpu, maxCPU);
+      updateGauge(memoryChart, latest.memory, maxMemory);
+    }
+
+    function createGaugeChart(ctx, label, value, max) {
+      return new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: [label, 'Remaining'],
+          datasets: [{
+            data: [value, max - value],
+            backgroundColor: ['#00c853', '#eeeeee'],
+            borderWidth: 0
+          }]
+        },
+        options: {
+          rotation: -90,
+          circumference: 180,
+          cutout: '70%',
+          plugins: {
+            datalabels: {
+              display: true,
+              formatter: (val, context) => {
+                return context.dataIndex === 0
+                  ? `${val} ${label === 'CPU' ? 'cores' : 'MB'}`
+                  : '';
+              },
+              color: '#000',
+              font: {
+                weight: 'bold',
+                size: 16
+              }
+            },
+            legend: {
+              display: false
+            }
+          }
+        },
+        plugins: [ChartDataLabels]
+      });
+    }
+
+    function updateGauge(chart, value, max) {
+      chart.data.datasets[0].data = [value, max - value];
+      chart.update();
+    }
+
+    const cpuChart = createGaugeChart(
+      document.getElementById('cpuGauge').getContext('2d'),
+      'CPU',
+      0,
+      2
+    );
+
+    const memoryChart = createGaugeChart(
+      document.getElementById('memoryGauge').getContext('2d'),
+      'Memory',
+      0,
+      1024
+    );
+
+    fetchMetrics();
+    setInterval(fetchMetrics, 10000);
+  </script>
+</body>
+</html>
