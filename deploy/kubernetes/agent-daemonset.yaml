@@ -1,0 +1,35 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: claritty-agent
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      name: claritty-agent
+  template:
+    metadata:
+      labels:
+        name: claritty-agent
+    spec:
+      hostNetwork: true
+      containers:
+      - name: claritty-agent
+        image: vaishnav88sk/claritty-agent:v7
+        imagePullPolicy: Always
+        env:
+          - name: BACKEND_URL
+            value: "<BACKEND_URL>:8088"
+        volumeMounts:
+        - name: varlog
+          mountPath: /var/log/containers
+        - name: kubelet
+          mountPath: /etc/hostname
+          readOnly: true
+      volumes:
+      - name: varlog
+        hostPath:
+          path: /var/log/containers
+      - name: kubelet
+        hostPath:
+          path: /etc/hostname
