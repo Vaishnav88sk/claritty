@@ -14,13 +14,14 @@ spec:
         name: claritty-agent
     spec:
       hostNetwork: true
+      serviceAccountName: claritty-agent-sa
       containers:
         - name: claritty-agent
-          image: vaishnav88sk/claritty-agent:v7
+          image: vaishnav88sk/claritty-agent-client:v2
           imagePullPolicy: Always
           env:
             - name: BACKEND_URL
-              value: "<BACKEND_URL>:8088"
+              value: "http://<BACKEND_URL>:8088"
           volumeMounts:
             - name: varlog
               mountPath: /var/log/containers
