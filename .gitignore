@@ -2,3 +2,4 @@
 backend/claritty-backend
 backend/metrics.db
 claritty-agent/claritty-agent
+claritty-agent-client/claritty-agent-client
