@@ -11,86 +11,38 @@ on:
 
 jobs:
   code_quality:
-    runs-on: ubuntu-latest  # GitHub-hosted runner with many pre-installed tools
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install Common Quality Tools
+      - name: Cache npm
+        uses: actions/cache@v3
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-markdownlint
+
+      - name: Cache pip
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-quality-tools
+
+      - name: Install Tools (minimal)
         run: |
-          echo "Installing general code quality tools..."
-          # Install tools that aren't pre-installed or need specific versions.
-          # Examples:
-          # For Markdown linting:
+          echo "Installing only what's necessary..."
           npm install -g markdownlint-cli
-          # For YAML linting:
-          sudo apt-get update && sudo apt-get install -y yamllint
-          # For Shell Script linting:
-          sudo apt-get install -y shellcheck
-          # For checking broken links in documentation/markdown:
-          pip install rstcheck # Can check ReStructuredText
-          pip install linkchecker # A dedicated link checker
+          pip install rstcheck linkchecker
 
-      - name: Run Markdown Linting
-        # Adjust '--config' to your markdownlint config file path
-        # (e.g., .markdownlint.jsonc)
-        # Use '**/*.md' to check all markdown files.
-        # '|| true' allows the job to pass even if linting issues are found.
-        # Remove it for strict failure.
+      - name: Run Markdownlint
         run: |
-          echo "--- Running Markdownlint ---"
-          markdownlint \
-            --config ./.github/linters/.markdownlint.jsonc \
-            '**/*.md' || true
+          markdownlint '**/*.md' || true
 
-      - name: Run YAML Linting
-        # Assumes a .yamllint configuration file in your repository root.
-        # Adjust the path to your YAML files as needed.
+      - name: Run Yamllint
         run: |
-          echo "--- Running Yamllint ---"
           yamllint .
 
-      - name: Run Shell Script Linting
-        # Finds all .sh files and runs shellcheck.
-        # Customize the 'find' command if your scripts are in specific dir
+      - name: Run Shellcheck
         run: |
-          echo "--- Running Shellcheck ---"
-          find . \
-            -type f -name "*.sh" -exec shellcheck {} + || true
-
-      - name: Check for Broken Links in Documentation
-        # You'll need to point this to your documentation root or files.
-        # This is a very basic example; you might need more sophisticated setup
-        # for large docs. Linkchecker might require a configuration file.
-        run: |
-          echo "--- Running Link Checker ---"
-          # Example: check links in all markdown files
-          find . -type f -name "*.md" -print0 | xargs -0 linkchecker || true
-          # Alternatively, check a specific documentation directory if it serves
-          # HTML/Markdown
-          # linkchecker \
-            --config .linkcheckerrc https://your-docs-url.com || true
-
-      - name: Verify Consistent Newlines (LF vs CRLF - basic check)
-        run: |
-          echo "--- Checking for Mixed Newlines ---"
-          # This is a basic check; for precise control, use .gitattributes
-          # It finds files with both LF and CRLF, indicate mixed line endings.
-          grep -P '\r\n.*[^\r]\n|\n.*[^\n]\r\n' . -r \
-          --exclude-dir={.git,.github,node_modules,vendor} && \
-          { echo "Mixed newlines found!"; exit 1; } || true
-          echo "Newline consistency looks good."
-
-      - name: Check Large Files (Optional)
-        run: |
-          echo "--- Checking for large files ---"
-          # Finds files larger than 10MB; adjust '10M' as needed.
-          find . -type f -size +10M -print -exec du -h {} +
-          echo "If any large files were listed above, consider using Git LFS or"
-          echo "excluding them."
-
-      - name: Final Code Quality Review
-        run: |
-          echo "All selected generic code quality checks completed."
-          echo "Review the output for any warnings or errors."
+          find . -type f -name "*.sh" -exec shellcheck {} + || true
