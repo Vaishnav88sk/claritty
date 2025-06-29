@@ -50,7 +50,7 @@
 
   <script>
     async function fetchMetrics() {
-      const res = await fetch("http://ec2-15-207-109-175.ap-south-1.compute.amazonaws.com:8088/api/metrics");
+      const res = await fetch("http://<BACKEND_URL>:8088/api/metrics");
       const data = await res.json();
       const latest = data[0];
 
