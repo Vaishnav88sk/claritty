@@ -76,4 +76,4 @@ Contributions are welcome! Please open an issue or submit a PR if you’d like t
 ---
 
 ## 📜 License  
-[MIT LICENSE](/LiCENSE)
+[MIT LICENSE](/LICENSE)
