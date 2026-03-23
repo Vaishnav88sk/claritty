@@ -1,0 +1,8 @@
+crewai
+litellm
+groq
+mistralai
+python-dotenv
+kubernetes
+pydantic
+prometheus-client
