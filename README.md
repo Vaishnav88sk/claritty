@@ -3,7 +3,7 @@
 
 Claritty is an **open-source, lightweight, cloud-native observability agent** for Kubernetes clusters.
 It collects **real-time node and custom metrics**, forwards them to a backend service for visualization and analysis, and applies **AI-driven root-cause analysis (RCA)** to detect spikes, failures, and trigger intelligent alert summaries.
-Claritty is built to be **scalable, extensible, and easy to deploy** across any Kubernetes environment — evolving into a full **AIOps-driven observability platform** for end-to-end DevOps monitoring.
+Claritty is built to be **scalable, extensible, and easy to deploy** across any Kubernetes environment - evolving into a full **AIOps-driven observability platform** for end-to-end DevOps monitoring.
 
 ---
 
@@ -57,8 +57,7 @@ go run main.go
 ### 3. Start the RCA Engine
 
 ```bash
-cd rca/
-pip install -r requirements.txt
+cd ai-sre/
 python sre_swarm_new.py
 ```
 
