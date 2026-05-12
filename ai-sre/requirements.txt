@@ -5,4 +5,10 @@ mistralai
 python-dotenv
 kubernetes
 pydantic
-prometheus-client
+requests
+rich
+click
+pyyaml
+scipy
+numpy
+aiohttp
