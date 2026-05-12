@@ -1,0 +1,61 @@
+name: Pending Pods Recovery
+description: >
+  Handles pods stuck in Pending state due to insufficient resources,
+  scheduling constraints, quota exhaustion, or PVC binding failures.
+severity: SEV2
+category: pending
+triggers:
+  - pod phase == Pending
+  - event reason == FailedScheduling
+  - Insufficient cpu/memory events
+
+diagnosis:
+  - Check FailedScheduling events for specific reason
+  - Check node resource availability (allocatable vs requested)
+  - Check namespace resource quotas
+  - Check node selectors and taints/tolerations
+  - Check PVC binding status
+
+steps:
+  - step_number: 1
+    description: "Check scheduling failure reason from events"
+    command: "kubectl describe pod <POD_NAME> -n <NAMESPACE>"
+    is_destructive: false
+    is_automated: true
+
+  - step_number: 2
+    description: "Check namespace resource quota usage"
+    command: "kubectl describe resourcequota -n <NAMESPACE>"
+    is_destructive: false
+    is_automated: true
+
+  - step_number: 3
+    description: "Check node available capacity"
+    command: "kubectl describe nodes | grep -A5 'Allocated resources'"
+    is_destructive: false
+    is_automated: true
+
+  - step_number: 4
+    description: "Check PVC status if pod uses persistent storage"
+    command: "kubectl get pvc -n <NAMESPACE>"
+    is_destructive: false
+    is_automated: true
+
+  - step_number: 5
+    description: >
+      If quota exceeded: request quota increase or reduce replicas of non-critical workloads.
+      If resource pressure: consider scaling the cluster or moving workloads.
+    command: null
+    is_destructive: false
+    is_automated: false
+
+  - step_number: 6
+    description: "Scale down lower-priority deployment to free resources"
+    command: "kubectl scale deployment/<LOW_PRIORITY_DEPLOYMENT> --replicas=0 -n <NAMESPACE>"
+    is_destructive: true
+    is_automated: false
+
+notes:
+  - "FailedScheduling with 'Insufficient memory': nodes don't have enough allocatable RAM"
+  - "FailedScheduling with 'node(s) had taint': pod needs tolerations"
+  - "If PVC is Pending: storage class may not support the zone/region"
