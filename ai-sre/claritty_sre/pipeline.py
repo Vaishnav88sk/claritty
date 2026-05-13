@@ -15,6 +15,10 @@ import time
 from datetime import datetime
 from typing import Optional
 
+# Max retries for LLM rate limit errors
+MAX_RETRIES = 3
+RETRY_BACKOFF = [15, 30, 60]  # seconds between retries
+
 from crewai import Crew, Task, Process
 
 from .agents import (
@@ -262,25 +266,45 @@ def build_crew() -> Crew:
         process=Process.sequential,
         verbose=True,
         memory=False,
+        max_rpm=30,  # Throttle to 1 req / 2 sec for free-tier APIs (Mistral)
     )
 
 
 def run_scan() -> IncidentReport:
-    """Execute one full SRE scan and return a structured IncidentReport."""
+    """Execute one full SRE scan and return a structured IncidentReport.
+    Retries up to MAX_RETRIES times on rate limit (429) errors.
+    """
     start_time = time.time()
     logger.info("Starting AI-SRE scan at %s", datetime.utcnow().isoformat())
 
-    crew = build_crew()
-    result = crew.kickoff()
+    last_error = None
+    for attempt in range(MAX_RETRIES):
+        try:
+            crew = build_crew()
+            result = crew.kickoff()
+            duration = time.time() - start_time
+            raw = result.raw if hasattr(result, "raw") else str(result)
+            report = _parse_incident_json(raw, config.llm_model, duration)
+            report.detected_at = datetime.utcnow()
+            logger.info(
+                "Scan complete in %.1fs — %s [%s] confidence=%d%%",
+                duration, report.id, report.severity.value, report.confidence_score
+            )
+            return report
+        except Exception as e:
+            last_error = e
+            err_str = str(e).lower()
+            is_rate_limit = any(x in err_str for x in ["rate limit", "429", "ratelimit", "quota"])
+            if is_rate_limit and attempt < MAX_RETRIES - 1:
+                wait = RETRY_BACKOFF[attempt]
+                logger.warning(
+                    "Rate limit hit on attempt %d/%d — retrying in %ds",
+                    attempt + 1, MAX_RETRIES, wait
+                )
+                print(f"\n⚠️  Rate limit hit — waiting {wait}s before retry {attempt + 2}/{MAX_RETRIES}...\n")
+                time.sleep(wait)
+                continue
+            raise
 
-    duration = time.time() - start_time
-    raw = result.raw if hasattr(result, "raw") else str(result)
+    raise last_error
 
-    report = _parse_incident_json(raw, config.llm_model, duration)
-    report.detected_at = datetime.utcnow()
-
-    logger.info(
-        "Scan complete in %.1fs — %s [%s] confidence=%d%%",
-        duration, report.id, report.severity.value, report.confidence_score
-    )
-    return report

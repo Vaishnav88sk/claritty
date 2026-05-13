@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """
-main.py — Claritty AI-SRE Engine CLI
+cli.py — Claritty AI-SRE Engine CLI
 ======================================
 Production-grade, multi-agent Site Reliability Engineering platform
 for Kubernetes clusters.
 
 Usage:
-  python main.py scan              Run a single SRE scan
-  python main.py watch             Continuous monitoring loop with dashboard
-  python main.py incidents         View incident history
-  python main.py show <id>         Show detailed incident report
-  python main.py apply <id>        Apply remediation for an incident
-  python main.py report <id>       Export incident as JSON report
-  python main.py status            Show cluster health snapshot
+  clarctl scan              Run a single SRE scan
+  clarctl watch             Continuous monitoring loop with dashboard
+  clarctl incidents         View incident history
+  clarctl show <id>         Show detailed incident report
+  clarctl apply <id>        Apply remediation for an incident
+  clarctl report <id>       Export incident as JSON report
+  clarctl status            Show cluster health snapshot
 """
 
 import json
@@ -92,9 +92,12 @@ def _handle_report(report: IncidentReport, apply: bool = False) -> None:
 
     # Prompt for remediation
     if apply and report.remediation_plan:
-        approved = prompt_apply_fix(report)
-        if approved:
-            _apply_remediation(report, dry_run=config.dry_run)
+        action = prompt_apply_fix(report)
+        if action == "execute":
+            config.dry_run = False
+            _apply_remediation(report, dry_run=False)
+        elif action == "dry":
+            _apply_remediation(report, dry_run=True)
 
 
 def _apply_remediation(report: IncidentReport, dry_run: bool = True) -> None:
@@ -226,9 +229,12 @@ def watch(interval: int, apply: bool):
                 render_incident_detail(report)
                 alerts.dispatch_alerts(report)
                 if apply:
-                    approved = prompt_apply_fix(report)
-                    if approved:
-                        _apply_remediation(report)
+                    action = prompt_apply_fix(report)
+                    if action == "execute":
+                        config.dry_run = False
+                        _apply_remediation(report, dry_run=False)
+                    elif action == "dry":
+                        _apply_remediation(report, dry_run=True)
             else:
                 console.print(
                     Panel(
@@ -292,9 +298,12 @@ def apply(incident_id: str, dry_run: bool):
         console.print("[yellow]No remediation steps available for this incident.[/yellow]")
         raise SystemExit(0)
 
-    approved = prompt_apply_fix(report)
-    if approved:
-        _apply_remediation(report, dry_run=dry_run)
+    action = prompt_apply_fix(report)
+    if action == "execute":
+        config.dry_run = False
+        _apply_remediation(report, dry_run=False)
+    elif action == "dry":
+        _apply_remediation(report, dry_run=True)
 
 
 @cli.command()

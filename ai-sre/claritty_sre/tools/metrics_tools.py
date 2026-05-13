@@ -155,7 +155,7 @@ def get_request_latency_p99(namespace: str = "") -> str:
 
 
 @tool
-def get_node_resource_pressure(_input: str = "") -> str:
+def get_node_resource_pressure(query: str = "") -> str:
     """Get CPU and memory utilization percentages per node from Prometheus node_exporter.
     Identifies overloaded nodes needing scale-out or pod eviction."""
     cpu_q = '100 - (avg by(instance)(rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100)'
@@ -178,7 +178,7 @@ def get_node_resource_pressure(_input: str = "") -> str:
 
 
 @tool
-def get_oom_kill_events(_input: str = "") -> str:
+def get_oom_kill_events(query: str = "") -> str:
     """Detect recent OOM kill events using kube_pod_container_status_last_terminated_reason.
     OOMKilled pods need higher memory limits. Returns all affected pods."""
     q = 'kube_pod_container_status_last_terminated_reason{reason="OOMKilled"} == 1'

@@ -6,18 +6,25 @@ with sensible production defaults.
 """
 
 import os
+import sys
 from dataclasses import dataclass, field
 from typing import List, Optional
 from dotenv import load_dotenv
 
+home_dir = os.path.expanduser("~")
+claritty_dir = os.path.join(home_dir, ".claritty")
+os.makedirs(claritty_dir, exist_ok=True)
+
+# Load global .env first, then local .env
+load_dotenv(dotenv_path=os.path.join(claritty_dir, ".env"))
 load_dotenv()
 
 
 @dataclass
 class SREConfig:
     # ─── LLM ───────────────────────────────────────────────
-    llm_provider: str = os.getenv("LLM_PROVIDER", "mistral")
-    llm_model: str = os.getenv("LLM_MODEL", "mistral/mistral-large-latest")
+    llm_provider: str = os.getenv("LLM_PROVIDER", "groq")
+    llm_model: str = os.getenv("LLM_MODEL", "groq/llama-3.3-70b-versatile")
     llm_temperature: float = float(os.getenv("LLM_TEMPERATURE", "0.1"))
     llm_max_tokens: int = int(os.getenv("LLM_MAX_TOKENS", "2048"))
 
@@ -61,9 +68,14 @@ class SREConfig:
     agent_timeout_seconds: int = int(os.getenv("AGENT_TIMEOUT_SECONDS", "120"))
 
     # ─── Runbooks ──────────────────────────────────────────
+    if getattr(sys, 'frozen', False):
+        _base_path = sys._MEIPASS
+    else:
+        _base_path = os.path.dirname(__file__)
+
     runbooks_dir: str = os.getenv(
         "RUNBOOKS_DIR",
-        os.path.join(os.path.dirname(os.path.dirname(__file__)), "runbooks")
+        os.path.join(_base_path, "runbooks")
     )
     dry_run: bool = os.getenv("DRY_RUN", "true").lower() == "true"
     auto_remediate: bool = os.getenv("AUTO_REMEDIATE", "false").lower() == "true"
@@ -71,7 +83,7 @@ class SREConfig:
     # ─── Database ──────────────────────────────────────────
     db_path: str = os.getenv(
         "DB_PATH",
-        os.path.join(os.path.dirname(os.path.dirname(__file__)), "claritty_sre.db")
+        os.path.join(claritty_dir, "claritty_sre.db")
     )
 
     # ─── API Keys ──────────────────────────────────────────
