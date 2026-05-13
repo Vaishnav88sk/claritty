@@ -54,11 +54,19 @@ Run the Go backend service (on EC2 or locally):
 go run main.go
 ```
 
-### 3. Start the RCA Engine
+### 3. Start the AI-SRE Engine (clarctl)
+
+You can easily install the `clarctl` standalone CLI to monitor your cluster and apply interactive remediation:
 
 ```bash
-cd ai-sre/
-python sre_swarm_new.py
+curl -sL https://raw.githubusercontent.com/Vaishnav88sk/claritty/vaishnav-claritty/ai-sre/install.sh | bash
+```
+
+Once installed, simply run:
+```bash
+clarctl status        # View cluster health
+clarctl watch         # Continuous monitoring loop
+clarctl scan --apply  # Scan and prompt for auto-remediation
 ```
 
 ### 4. View Metrics & Alerts
