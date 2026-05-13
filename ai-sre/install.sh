@@ -7,39 +7,29 @@ echo "========================================"
 
 # Define directories
 CLARITTY_DIR="$HOME/.claritty"
-APP_DIR="$CLARITTY_DIR/app"
+VENV_DIR="$CLARITTY_DIR/venv"
 BIN_DIR="$HOME/.local/bin"
 
 # Create necessary directories
 mkdir -p "$CLARITTY_DIR"
 mkdir -p "$BIN_DIR"
 
-# 1. Clone or update the repository
-if [ -d "$APP_DIR" ]; then
-    echo "Updating existing installation..."
-    cd "$APP_DIR"
-    git fetch origin
-    git checkout vaishnav-claritty --quiet
-    git pull origin vaishnav-claritty --quiet
-else
-    echo "Downloading source code..."
-    git clone -b vaishnav-claritty https://github.com/Vaishnav88sk/claritty.git "$APP_DIR" --quiet
-fi
-
-# 2. Setup Virtual Environment
+# 1. Setup Virtual Environment
 echo "Setting up isolated Python environment..."
-cd "$APP_DIR/ai-sre"
-python3 -m venv venv
-source venv/bin/activate
+if [ ! -d "$VENV_DIR" ]; then
+    python3 -m venv "$VENV_DIR"
+fi
+source "$VENV_DIR/bin/activate"
 
-# 3. Install dependencies
-echo "Installing dependencies (this may take a moment)..."
+# 2. Install dependencies and the CLI from remote
+echo "Downloading and installing clarctl CLI (this may take a moment)..."
 pip install --upgrade pip --quiet
-pip install -e . --quiet
+# Install directly from the github branch without cloning locally
+pip install --upgrade "git+https://github.com/Vaishnav88sk/claritty.git@vaishnav-claritty#subdirectory=ai-sre" --quiet
 
-# 4. Create the global executable symlink
+# 3. Create the global executable symlink
 echo "Configuring clarctl CLI..."
-ln -sf "$APP_DIR/ai-sre/venv/bin/clarctl" "$BIN_DIR/clarctl"
+ln -sf "$VENV_DIR/bin/clarctl" "$BIN_DIR/clarctl"
 
 # Ensure ~/.local/bin is in the PATH
 if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
@@ -49,7 +39,7 @@ if [[ ":$PATH:" != *":$BIN_DIR:"* ]]; then
     echo "export PATH=\"$BIN_DIR:\$PATH\""
 fi
 
-# 5. Create default .env if it doesn't exist
+# 4. Create default .env if it doesn't exist
 if [ ! -f "$CLARITTY_DIR/.env" ]; then
     echo "Creating empty configuration file at $CLARITTY_DIR/.env"
     cat <<EOF > "$CLARITTY_DIR/.env"
