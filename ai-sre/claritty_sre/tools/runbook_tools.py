@@ -85,7 +85,7 @@ def _run_command(cmd: str, dry_run: bool = True) -> dict:
 # ──────────────────────────────────────────────────────────
 
 @tool
-def list_available_runbooks(_input: str = "") -> str:
+def list_available_runbooks(query: str = "") -> str:
     """List all available SRE runbooks with their names, trigger conditions,
     and brief descriptions. Use this first to find the right runbook for an issue."""
     if not RUNBOOKS_DIR.exists():

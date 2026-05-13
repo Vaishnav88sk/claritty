@@ -290,14 +290,14 @@ def make_scan_progress() -> Progress:
     )
 
 
-def prompt_apply_fix(report: IncidentReport) -> bool:
+def prompt_apply_fix(report: IncidentReport) -> str:
     """
     Interactive prompt to apply the remediation plan.
-    Returns True if user approved and commands were run.
+    Returns 'execute', 'dry', or 'skip'.
     """
     if not report.remediation_plan:
         console.print("[dim]No remediation steps to apply.[/dim]")
-        return False
+        return "skip"
 
     console.print()
     console.print(Panel(
@@ -316,14 +316,14 @@ def prompt_apply_fix(report: IncidentReport) -> bool:
 
     console.print()
     answer = console.input(
-        "[bold yellow]Apply this remediation plan? [[green]y[/green]/[red]n[/red]/[cyan]dry[/cyan]]: [/bold yellow]"
+        "[bold yellow]Apply this remediation plan? [[green]y[/green] (execute)/[cyan]dry[/cyan] (dry run)/[red]n[/red] (skip)]: [/bold yellow]"
     ).strip().lower()
 
     if answer in ("y", "yes"):
-        return True
+        return "execute"
     elif answer in ("dry", "d"):
         console.print("[cyan]Running in DRY RUN mode — no changes will be made.[/cyan]")
-        return False
+        return "dry"
     else:
         console.print("[dim]Remediation skipped.[/dim]")
-        return False
+        return "skip"

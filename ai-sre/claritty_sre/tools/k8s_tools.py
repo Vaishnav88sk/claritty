@@ -49,56 +49,38 @@ def _get_autoscaling() -> client.AutoscalingV1Api:
 # ──────────────────────────────────────────────────────────
 
 @tool
-def list_pods_all_namespaces(_input: str = "") -> str:
+def list_pods_all_namespaces(query: str = "") -> str:
     """
-    List all pods across all namespaces with their status, restart counts,
-    resource requests/limits, and container states. Essential for cluster-wide health check.
+    List all pods across all namespaces with their status and restart counts.
+    Focuses on non-running pods and problem indicators.
     """
     try:
         v1 = _get_v1()
         pods = v1.list_pod_for_all_namespaces()
         result = []
         for p in pods.items:
-            containers = []
-            for c in p.spec.containers:
-                req = c.resources.requests or {} if c.resources else {}
-                lim = c.resources.limits or {} if c.resources else {}
-                containers.append({
-                    "name": c.name,
-                    "image": c.image,
-                    "cpu_request": req.get("cpu", "—"),
-                    "mem_request": req.get("memory", "—"),
-                    "cpu_limit": lim.get("cpu", "—"),
-                    "mem_limit": lim.get("memory", "—"),
-                })
+            # Skip healthy kube-system pods to save tokens
+            if p.metadata.namespace == "kube-system" and p.status.phase == "Running":
+                continue
 
-            # Container statuses
             restart_count = 0
-            container_states = []
+            states = []
             if p.status.container_statuses:
                 for cs in p.status.container_statuses:
                     restart_count += cs.restart_count
-                    state = "unknown"
-                    if cs.state.running:
-                        state = "running"
-                    elif cs.state.waiting:
+                    state = "running"
+                    if cs.state.waiting:
                         state = f"waiting:{cs.state.waiting.reason}"
                     elif cs.state.terminated:
-                        state = f"terminated:{cs.state.terminated.reason}"
-                    container_states.append({"name": cs.name, "state": state, "restarts": cs.restart_count})
+                        state = f"exit:{cs.state.terminated.exit_code}"
+                    states.append({"name": cs.name, "state": state, "restarts": cs.restart_count})
 
             result.append({
-                "namespace": p.metadata.namespace,
-                "name": p.metadata.name,
+                "ns": p.metadata.namespace,
+                "pod": p.metadata.name,
                 "phase": p.status.phase,
-                "node": p.spec.node_name,
-                "total_restarts": restart_count,
-                "containers": containers,
-                "container_states": container_states,
-                "conditions": [
-                    {"type": c.type, "status": c.status, "reason": c.reason}
-                    for c in (p.status.conditions or [])
-                ],
+                "restarts": restart_count,
+                "states": states,
             })
         return json.dumps(result, default=str)
     except Exception as e:
@@ -213,40 +195,44 @@ def get_pod_logs(pod_name: str, namespace: str = "default",
 
 @tool
 def get_cluster_events(namespace: str = "", warning_only: bool = True,
-                       limit: int = 50) -> str:
+                       limit: int = 20) -> str:
     """
-    Get recent Kubernetes events across the cluster (or a specific namespace).
-    Set warning_only=True to focus on Warning events (default) which indicate problems.
-    Sorted by most recent first. Use this for initial triage.
+    Get recent Kubernetes Warning events across the cluster.
+    Sorted by most recent first. Use for initial triage.
     """
     try:
         v1 = _get_v1()
         if namespace:
-            events = v1.list_namespaced_event(namespace, limit=limit)
+            events = v1.list_namespaced_event(namespace, limit=100)
         else:
-            events = v1.list_event_for_all_namespaces(limit=limit)
+            events = v1.list_event_for_all_namespaces(limit=100)
 
         items = events.items
         if warning_only:
             items = [e for e in items if e.type == "Warning"]
 
-        # Sort by last timestamp descending
         items.sort(
             key=lambda e: e.last_timestamp or e.event_time or "",
             reverse=True,
         )
 
+        # Deduplicate by (reason, object) — keep only latest of each
+        seen = set()
+        deduped = []
+        for e in items:
+            key = (e.reason, e.involved_object.name)
+            if key not in seen:
+                seen.add(key)
+                deduped.append(e)
+
         return json.dumps([
             {
-                "time": str(e.last_timestamp or e.event_time),
-                "type": e.type,
                 "reason": e.reason,
-                "namespace": e.metadata.namespace,
                 "object": f"{e.involved_object.kind}/{e.involved_object.name}",
-                "message": e.message,
+                "msg": (e.message or "")[:120],  # truncate long messages
                 "count": e.count,
             }
-            for e in items[:limit]
+            for e in deduped[:limit]
         ], default=str)
     except Exception as e:
         return json.dumps({"error": str(e)})
@@ -257,7 +243,7 @@ def get_cluster_events(namespace: str = "", warning_only: bool = True,
 # ──────────────────────────────────────────────────────────
 
 @tool
-def get_node_health(_input: str = "") -> str:
+def get_node_health(query: str = "") -> str:
     """
     Get detailed health status of all cluster nodes including:
     Ready/NotReady status, memory/disk/PID pressure, taints,
@@ -447,7 +433,7 @@ def get_hpa_status(namespace: str = "") -> str:
 
 
 @tool
-def get_namespace_summary(_input: str = "") -> str:
+def get_namespace_summary(query: str = "") -> str:
     """
     Get a summary of all namespaces: pod counts by phase, resource usage,
     and namespace-level health indicators. Good for multi-tenant cluster analysis.
