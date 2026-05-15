@@ -58,6 +58,7 @@ fi
 # ── Download binary ──────────────────────────────────────────────────────────
 echo "Downloading ${ASSET_NAME}..."
 mkdir -p "$BIN_DIR"
+rm -f "$INSTALL_PATH"
 curl -sL "$LATEST" -o "$INSTALL_PATH"
 chmod +x "$INSTALL_PATH"
 
