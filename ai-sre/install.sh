@@ -27,6 +27,7 @@ docker build -t claritty-sre https://github.com/Vaishnav88sk/claritty.git#vaishn
 # 2. Create the global executable bash wrapper
 echo "Configuring clarctl CLI wrapper..."
 WRAPPER_PATH="$BIN_DIR/clarctl"
+rm -f "$WRAPPER_PATH"
 
 cat <<'EOF' > "$WRAPPER_PATH"
 #!/usr/bin/env bash
