@@ -21,7 +21,7 @@ spec:
           imagePullPolicy: Always
           env:
             - name: BACKEND_URL
-              value: "http://<BACKEND_URL>:8088"
+              value: "http://host.k3d.internal:8088"
           volumeMounts:
             - name: varlog
               mountPath: /var/log/containers
