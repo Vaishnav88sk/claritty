@@ -1,0 +1,66 @@
+name: High CPU Usage Recovery
+description: >
+  Handles sustained high CPU usage (>80%) on pods or nodes.
+  Identifies the root cause (runaway process, traffic spike, inefficient code)
+  and provides scaling or throttling remediation.
+severity: SEV2
+category: high_cpu
+triggers:
+  - pod cpu usage > 80% of limit
+  - node cpu usage > 90%
+  - CPU throttling > 50%
+
+diagnosis:
+  - Identify which pods are consuming the most CPU
+  - Check if CPU spike is correlated with traffic increase (check error rate/latency)
+  - Check if recently deployed (code regression)
+  - Check HPA status — is auto-scaling keeping up?
+
+steps:
+  - step_number: 1
+    description: "Get current CPU usage by pod"
+    command: "kubectl top pods -n <NAMESPACE> --sort-by=cpu"
+    is_destructive: false
+    is_automated: true
+
+  - step_number: 2
+    description: "Check HPA status — is it scaling?"
+    command: "kubectl get hpa -n <NAMESPACE>"
+    is_destructive: false
+    is_automated: true
+
+  - step_number: 3
+    description: >
+      If HPA exists but at max replicas: scale manually above HPA max
+      as an emergency measure.
+    command: "kubectl scale deployment/<DEPLOYMENT_NAME> --replicas=<N+2> -n <NAMESPACE>"
+    is_destructive: false
+    is_automated: false
+
+  - step_number: 4
+    description: >
+      If no HPA: manually scale up the deployment to distribute CPU load.
+    command: "kubectl scale deployment/<DEPLOYMENT_NAME> --replicas=<CURRENT+2> -n <NAMESPACE>"
+    is_destructive: false
+    is_automated: false
+
+  - step_number: 5
+    description: "If spike is due to runaway process, restart the deployment"
+    command: "kubectl rollout restart deployment/<DEPLOYMENT_NAME> -n <NAMESPACE>"
+    is_destructive: false
+    is_automated: false
+
+  - step_number: 6
+    description: "Set CPU limits to prevent a single pod from consuming all node CPU"
+    command: >
+      kubectl set resources deployment/<DEPLOYMENT_NAME>
+      -n <NAMESPACE>
+      --limits=cpu=<LIMIT>m
+    is_destructive: false
+    is_automated: false
+
+notes:
+  - "CPU throttling != OOM — throttled pods are slow, not killed"
+  - "Check if CPU limits are too low (causing artificial throttling)"
+  - "Consider HPA with CPU target 70% for proactive scaling"
+  - "Profile the application if the spike is reproducible"

@@ -1,0 +1,66 @@
+name: Node Not Ready Recovery
+description: >
+  Handles nodes in NotReady state. Diagnoses kubelet issues, disk/memory
+  pressure, network plugin failures, or hardware problems. Cordons
+  and drains the node if necessary.
+severity: SEV1
+category: node_not_ready
+triggers:
+  - node condition Ready == False
+  - node condition Ready == Unknown
+  - event reason == NodeNotReady
+
+diagnosis:
+  - Check node conditions (MemoryPressure, DiskPressure, PIDPressure, NetworkUnavailable)
+  - Check kubelet logs on the node
+  - Check if node is reachable (ping/SSH)
+  - Check if other nodes are affected (cluster-wide issue vs single node)
+
+steps:
+  - step_number: 1
+    description: "Get full node status and conditions"
+    command: "kubectl describe node <NODE_NAME>"
+    is_destructive: false
+    is_automated: true
+
+  - step_number: 2
+    description: "Get recent events related to the node"
+    command: "kubectl get events --field-selector involvedObject.name=<NODE_NAME>"
+    is_destructive: false
+    is_automated: true
+
+  - step_number: 3
+    description: >
+      Cordon the node immediately to prevent new pod scheduling
+      while diagnosis continues.
+    command: "kubectl cordon <NODE_NAME>"
+    is_destructive: false
+    is_automated: false
+
+  - step_number: 4
+    description: "Check pods currently running on the troubled node"
+    command: "kubectl get pods --all-namespaces --field-selector spec.nodeName=<NODE_NAME>"
+    is_destructive: false
+    is_automated: true
+
+  - step_number: 5
+    description: >
+      If disk pressure: identify and remove large files or unused images.
+      SSH to node and run: df -h && docker system prune (if Docker) or crictl rmi --prune.
+    command: null
+    is_destructive: false
+    is_automated: false
+
+  - step_number: 6
+    description: >
+      If node is unrecoverable, drain it to safely reschedule all pods
+      to healthy nodes. WARNING: This is disruptive.
+    command: "kubectl drain <NODE_NAME> --ignore-daemonsets --delete-emptydir-data --force"
+    is_destructive: true
+    is_automated: false
+
+notes:
+  - "Always cordon before draining"
+  - "Check if node has special taints before draining"
+  - "For managed clusters (EKS/GKE), use the cloud provider to restart/replace the node"
+  - "DiskPressure: check /var/lib/kubelet and container image storage"
