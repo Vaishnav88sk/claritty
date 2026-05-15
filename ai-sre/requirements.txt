@@ -9,6 +9,4 @@ requests
 rich
 click
 pyyaml
-scipy
-numpy
 aiohttp
