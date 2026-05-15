@@ -79,6 +79,7 @@ if [ ! -f "$CLARITTY_DIR/.env" ]; then
 # Get a free key at https://console.groq.com
 LLM_PROVIDER=groq
 LLM_MODEL=groq/llama-3.3-70b-versatile
+# LLM_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
 GROQ_API_KEY=your_groq_api_key_here
 # OPENAI_API_KEY=
 # MISTRAL_API_KEY=

@@ -118,6 +118,12 @@ func PrintIncidentDetail(r *incident.Report) {
 	fmt.Printf("%s %s\n", styleHeader.Render("ID:"), r.ID)
 	fmt.Printf("%s %s\n", styleHeader.Render("Category:"), r.Category)
 	fmt.Printf("%s %s\n", styleHeader.Render("Namespaces:"), strings.Join(r.AffectedNamespaces, ", "))
+	if len(r.AffectedServices) > 0 {
+		fmt.Println(styleHeader.Render("Affected Pods/Services:"))
+		for _, svc := range r.AffectedServices {
+			fmt.Printf("  • %s (Namespace: %s) — Impact: %s\n", styleBold.Render(svc.ServiceName), svc.Namespace, svc.ImpactLevel)
+		}
+	}
 	fmt.Printf("%s %s\n", styleHeader.Render("Detected:"), r.DetectedAt.Format(time.RFC3339))
 
 	if r.LLMModel != "" {
