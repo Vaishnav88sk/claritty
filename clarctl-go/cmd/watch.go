@@ -34,28 +34,31 @@ var watchCmd = &cobra.Command{
 		fmt.Printf("Starting continuous watcher (interval: %ds, Ctrl+C to stop)\n\n", watchInterval)
 
 		// Graceful shutdown on SIGINT / SIGTERM
-		quit := make(chan os.Signal, 1)
-		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
 
 		scanCount := 0
 		for {
-			select {
-			case <-quit:
+			if ctx.Err() != nil {
 				fmt.Println("\nWatcher stopped.")
 				return nil
-			default:
 			}
 
 			scanCount++
 			ts := time.Now().UTC().Format("2006-01-02 15:04:05 UTC")
 			fmt.Printf("\n──── Scan #%d  ·  %s ────\n", scanCount, ts)
 
-			ctx, cancel := context.WithTimeout(context.Background(),
+			scanCtx, cancel := context.WithTimeout(ctx,
 				time.Duration(cfg.AgentTimeoutSeconds*6)*time.Second)
 
-			report, err := pipe.RunScan(ctx)
+			report, err := pipe.RunScan(scanCtx)
 			cancel()
+			
 			if err != nil {
+				if ctx.Err() != nil {
+					fmt.Println("\nWatcher stopped by user.")
+					return nil
+				}
 				fmt.Printf("[error] Scan #%d failed: %v\n", scanCount, err)
 			} else {
 				_ = store.SaveIncident(report)
@@ -103,7 +106,7 @@ var watchCmd = &cobra.Command{
 
 			fmt.Printf("\nNext scan in %ds...\n", watchInterval)
 			select {
-			case <-quit:
+			case <-ctx.Done():
 				fmt.Println("\nWatcher stopped.")
 				return nil
 			case <-time.After(time.Duration(watchInterval) * time.Second):
