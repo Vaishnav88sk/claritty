@@ -15,7 +15,11 @@ func main() {
 
 	// CORS
 	r.Use(cors.New(cors.Config{
-        AllowOrigins:     []string{"http://127.0.0.1:5500"},
+        // AllowOrigins:     []string{"http://127.0.0.1:5500"},
+		AllowOrigins: []string{
+			"http://localhost:5173",
+			"http://127.0.0.1:5173",
+		},
         AllowMethods:     []string{"GET", "POST"},
         AllowHeaders:     []string{"Origin", "Content-Type"},
         ExposeHeaders:    []string{"Content-Length"},
@@ -25,6 +29,7 @@ func main() {
 
 	r.POST("/api/metrics", routes.PostMetrics)
 	r.GET("/api/metrics", routes.GetMetrics)
+	r.GET("/api/cluster/overview", routes.GetClusterOverview)
 
 	r.Run(":8088") // Runs on port 8080
 }
