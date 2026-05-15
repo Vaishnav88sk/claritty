@@ -38,23 +38,28 @@ func New(cfg *config.Config, k8sCli *k8s.Client) (*Pipeline, error) {
 
 // buildLLM creates the appropriate LLM client based on config.
 func buildLLM(cfg *config.Config) (llms.Model, error) {
+	modelName := cfg.LLMModel
 	switch cfg.LLMProvider {
 	case "groq":
+		modelName = strings.TrimPrefix(modelName, "groq/")
+		modelName = strings.TrimPrefix(modelName, "groq/") // Handle double prefix
 		return openai.New(
 			openai.WithBaseURL("https://api.groq.com/openai/v1"),
 			openai.WithToken(cfg.GroqAPIKey),
-			openai.WithModel(strings.TrimPrefix(cfg.LLMModel, "groq/")),
+			openai.WithModel(modelName),
 		)
 	case "openai":
 		return openai.New(
 			openai.WithToken(cfg.OpenAIAPIKey),
-			openai.WithModel(cfg.LLMModel),
+			openai.WithModel(modelName),
 		)
 	case "mistral":
+		modelName = strings.TrimPrefix(modelName, "mistral/")
+		modelName = strings.TrimPrefix(modelName, "mistral/")
 		return openai.New(
 			openai.WithBaseURL("https://api.mistral.ai/v1"),
 			openai.WithToken(cfg.MistralAPIKey),
-			openai.WithModel(strings.TrimPrefix(cfg.LLMModel, "mistral/")),
+			openai.WithModel(modelName),
 		)
 	default:
 		return nil, fmt.Errorf("unsupported LLM provider: %s", cfg.LLMProvider)
@@ -104,36 +109,57 @@ func (p *Pipeline) runPipeline(ctx context.Context) (*incident.Report, error) {
 
 	// ── Stage 2: Metrics ───────────────────────────────────────────────────
 	fmt.Println("  📈 Stage 2/6: Metrics Agent — analyzing telemetry...")
-	metricsSummary, err := p.callAgent(ctx, buildMetricsPrompt(triageSummary, p.cfg))
+	metricsSummary, err := p.callAgent(ctx, buildMetricsPrompt(truncate(triageSummary, 2000), p.cfg))
 	if err != nil {
 		return nil, fmt.Errorf("metrics agent: %w", err)
 	}
 
 	// ── Stage 3: Logs ──────────────────────────────────────────────────────
 	fmt.Println("  📋 Stage 3/6: Log Agent — mining error patterns...")
-	logData := p.collectLogData(ctx, triageSummary)
-	logSummary, err := p.callAgent(ctx, buildLogPrompt(triageSummary, metricsSummary, logData, p.cfg))
+	logData := p.collectLogData(ctx, truncate(triageSummary, 1000))
+	logSummary, err := p.callAgent(ctx, buildLogPrompt(
+		truncate(triageSummary, 1000),
+		truncate(metricsSummary, 1000),
+		logData,
+		p.cfg,
+	))
 	if err != nil {
 		return nil, fmt.Errorf("log agent: %w", err)
 	}
 
 	// ── Stage 4: Infrastructure ────────────────────────────────────────────
 	fmt.Println("  🏗  Stage 4/6: Infra Agent — diagnosing K8s constraints...")
-	infraSummary, err := p.callAgent(ctx, buildInfraPrompt(triageSummary, metricsSummary, logSummary))
+	infraSummary, err := p.callAgent(ctx, buildInfraPrompt(
+		truncate(triageSummary, 1000),
+		truncate(metricsSummary, 1000),
+		truncate(logSummary, 1000),
+	))
 	if err != nil {
 		return nil, fmt.Errorf("infra agent: %w", err)
 	}
 
 	// ── Stage 5: Runbook ───────────────────────────────────────────────────
 	fmt.Println("  📖 Stage 5/6: Runbook Agent — selecting remediation plan...")
-	runbookSummary, err := p.callAgent(ctx, buildRunbookPrompt(triageSummary, metricsSummary, logSummary, infraSummary, p.cfg))
+	runbookSummary, err := p.callAgent(ctx, buildRunbookPrompt(
+		truncate(triageSummary, 800),
+		truncate(metricsSummary, 800),
+		truncate(logSummary, 800),
+		truncate(infraSummary, 800),
+		p.cfg,
+	))
 	if err != nil {
 		return nil, fmt.Errorf("runbook agent: %w", err)
 	}
 
 	// ── Stage 6: Commander ─────────────────────────────────────────────────
 	fmt.Println("  ⚡ Stage 6/6: Incident Commander — synthesizing final report...")
-	finalJSON, err := p.callAgent(ctx, buildCommanderPrompt(triageSummary, metricsSummary, logSummary, infraSummary, runbookSummary))
+	finalJSON, err := p.callAgent(ctx, buildCommanderPrompt(
+		truncate(triageSummary, 800),
+		truncate(metricsSummary, 800),
+		truncate(logSummary, 800),
+		truncate(infraSummary, 800),
+		truncate(runbookSummary, 1000),
+	))
 	if err != nil {
 		return nil, fmt.Errorf("commander agent: %w", err)
 	}
@@ -163,16 +189,31 @@ type triageCollectedData struct {
 }
 
 func (p *Pipeline) collectTriageData(ctx context.Context) (*triageCollectedData, error) {
-	pods, err := p.k8sCli.ListPods(ctx, p.cfg.Namespaces)
+	allPods, err := p.k8sCli.ListPods(ctx, p.cfg.Namespaces)
 	if err != nil {
 		return nil, err
 	}
-	events, _ := p.k8sCli.GetWarningEvents(ctx, p.cfg.Namespaces, p.cfg.MaxEventsPerScan)
+
+	// Filter for problematic pods to reduce payload size (prevents 413 error)
+	var problemPods []k8s.PodSummary
+	for _, pod := range allPods {
+		isHealthy := pod.Phase == "Running" && pod.Ready && pod.Restarts <= int32(p.cfg.RestartWarningCnt)
+		if !isHealthy {
+			problemPods = append(problemPods, pod)
+		}
+	}
+
+	// If we have too many problem pods, limit to top 50 to stay within token/payload limits
+	if len(problemPods) > 50 {
+		problemPods = problemPods[:50]
+	}
+
+	events, _ := p.k8sCli.GetWarningEvents(ctx, p.cfg.Namespaces, 20) // Limit to 20 most recent warnings
 	nodes, _ := p.k8sCli.GetNodeHealth(ctx)
 	summaries, _ := p.k8sCli.GetNamespaceSummaries(ctx, p.cfg.Namespaces)
 
 	return &triageCollectedData{
-		Pods: pods, Events: events, Nodes: nodes, Summaries: summaries,
+		Pods: problemPods, Events: events, Nodes: nodes, Summaries: summaries,
 	}, nil
 }
 
@@ -198,10 +239,10 @@ func (p *Pipeline) collectLogData(ctx context.Context, triage string) string {
 // ─── Prompt builders ─────────────────────────────────────────────────────────
 
 func buildTriagePrompt(data *triageCollectedData, cfg *config.Config) string {
-	podJSON, _ := json.MarshalIndent(data.Pods, "", "  ")
-	eventJSON, _ := json.MarshalIndent(data.Events, "", "  ")
-	nodeJSON, _ := json.MarshalIndent(data.Nodes, "", "  ")
-	summJSON, _ := json.MarshalIndent(data.Summaries, "", "  ")
+	podJSON, _ := json.Marshal(data.Pods)
+	eventJSON, _ := json.Marshal(data.Events)
+	nodeJSON, _ := json.Marshal(data.Nodes)
+	summJSON, _ := json.Marshal(data.Summaries)
 
 	return fmt.Sprintf(`You are an SRE Triage Specialist with 10 years of experience.
 Analyze the following Kubernetes cluster data and produce a comprehensive triage report.
@@ -226,7 +267,10 @@ Instructions:
 3. Assess node health — are any nodes Not Ready or cordoned?
 4. Classify severity: SEV1 (service down), SEV2 (major degradation), SEV3 (minor), SEV4 (healthy).
 5. Output a structured triage report identifying the scope and initial severity.`,
-		string(podJSON), string(eventJSON), string(nodeJSON), string(summJSON),
+		truncate(string(podJSON), 4000),
+		truncate(string(eventJSON), 2000),
+		truncate(string(nodeJSON), 1000),
+		truncate(string(summJSON), 1000),
 		strings.Join(cfg.Namespaces, ", "),
 		cfg.RestartWarningCnt,
 	)
@@ -311,26 +355,29 @@ func buildRunbookPrompt(triage, metrics, logs, infra string, cfg *config.Config)
 	if !cfg.DryRun {
 		dryRunMode = "DISABLED (commands will be executed)"
 	}
-	return fmt.Sprintf(`You are a Runbook & Remediation Engineer.
-Based on the confirmed root cause below, produce an ordered remediation plan.
+	return fmt.Sprintf(`You are a senior Runbook & Remediation Engineer with 10+ years of Kubernetes experience.
+Your job is to create an ACTIONABLE remediation plan that FIXES the problem — not just inspects it.
 
 TRIAGE: %s
 METRICS: %s
 LOGS: %s
 INFRA: %s
 
-Available runbook categories: crashloop, oom_kill, high_cpu, image_pull_error, node_not_ready, disk_pressure, pending_pods
-
 DRY RUN MODE: %s
 
-Instructions:
-1. Select the best matching runbook category for the issue.
-2. Produce a numbered remediation plan with exact kubectl commands.
-3. Order steps from safest to most impactful.
-4. Mark each step: is_destructive (true/false), is_automated (true/false).
-5. Prefer: rolling restart > force delete > scale > cordon.
+CRITICAL RULES:
+1. DO NOT suggest 'kubectl describe' or 'kubectl get' as remediation steps. Those are for humans to inspect manually — NOT for automated remediation.
+2. EVERY step must be a command that CHANGES cluster state or FIXES the problem:
+   - ImagePullBackOff → kubectl patch pod <name> -n <ns> -p '{"spec":{...}}' with corrected image, or kubectl delete pod <name> -n <ns>
+   - CrashLoopBackOff → kubectl rollout restart deployment/<name> -n <ns>, or kubectl delete pod <name> -n <ns> --grace-period=0
+   - OOMKilled → kubectl patch deployment <name> -n <ns> --type='json' -p='[{"op":"replace","path":"/spec/template/spec/containers/0/resources/limits/memory","value":"512Mi"}]'
+   - Pending (resource) → kubectl describe the quota (OK for diagnosis only), then suggest kubectl delete pod or scale down other pods
+   - Node NotReady → kubectl drain <node> --ignore-daemonsets, or kubectl uncordon <node>
+3. Order steps: safe non-destructive first (restart) → destructive last (delete/force)
+4. If a pod name is known, include it in the command.
+5. Use correct namespaces in all commands.
 
-Output a structured remediation plan with exact kubectl commands.`,
+Output a structured remediation plan with exact executable kubectl commands.`,
 		truncate(triage, 800), truncate(metrics, 600), truncate(logs, 600), truncate(infra, 600),
 		dryRunMode,
 	)
@@ -338,32 +385,43 @@ Output a structured remediation plan with exact kubectl commands.`,
 
 func buildCommanderPrompt(triage, metrics, logs, infra, runbook string) string {
 	return fmt.Sprintf(`You are the Incident Commander. Synthesize all findings into a final incident report.
-Output ONLY valid JSON — no markdown, no explanation.
+Output ONLY valid JSON — no markdown, no explanation, no code fences.
 
 TRIAGE: %s
-METRICS: %s  
+METRICS: %s
 LOGS: %s
 INFRA: %s
 RUNBOOK PLAN: %s
 
+CRITICAL RULES FOR remediation_plan:
+1. Each command MUST be an executable kubectl command that CHANGES state (fixes the problem).
+2. NEVER put 'kubectl describe', 'kubectl get', or 'kubectl logs' as a remediation step — those are diagnostic, not remediation.
+3. Use the ACTUAL pod/deployment names found in the triage data.
+4. Use the correct namespace in every command (use -n <namespace>).
+5. For ImagePullBackOff: delete the pod so it can be recreated → 'kubectl delete pod <name> -n <ns> --grace-period=0 --force'
+6. For CrashLoopBackOff: restart the deployment or delete the pod → 'kubectl rollout restart deployment/<name> -n <ns>'
+7. For OOMKilled: patch memory limits or delete the pod → 'kubectl delete pod <name> -n <ns>'
+8. For Pending (no resources): identify what is blocking and suggest removing/scaling the blocker.
+
 Output EXACTLY this JSON structure:
 {
-  "has_issue": true/false,
+  "has_issue": true,
   "severity": "SEV1|SEV2|SEV3|SEV4",
   "title": "concise incident title",
   "category": "crashloop|oom|high_cpu|high_memory|image_pull|pending|node_not_ready|disk_pressure|error_rate|latency|healthy",
   "affected_namespaces": ["ns1"],
   "affected_services": [{"service_name": "x", "namespace": "y", "impact_level": "down|degraded|at_risk"}],
-  "root_cause": "3-5 sentence explanation",
+  "root_cause": "3-5 sentence explanation of the actual root cause",
   "contributing_factors": ["factor1", "factor2"],
   "confidence_score": 85,
   "remediation_plan": [
-    {"step_number": 1, "description": "...", "command": "kubectl ...", "is_destructive": false, "is_automated": false}
+    {"step_number": 1, "description": "Force delete the crashing pod so Kubernetes recreates it cleanly", "command": "kubectl delete pod crashloop-demo -n default --grace-period=0 --force", "is_destructive": true, "is_automated": true},
+    {"step_number": 2, "description": "Fix the invalid image tag and delete the stuck pod", "command": "kubectl delete pod badimage-demo -n default --grace-period=0 --force", "is_destructive": true, "is_automated": true}
   ],
   "runbook_used": "crash_loop.yaml"
 }
 
-CRITICAL: Only report CONFIRMED issues. If cluster is healthy, set has_issue=false and severity=SEV4.`,
+Only report CONFIRMED issues with real affected pod names from the triage data. If cluster is healthy, set has_issue=false and severity=SEV4.`,
 		truncate(triage, 1000), truncate(metrics, 700),
 		truncate(logs, 700), truncate(infra, 700), truncate(runbook, 800),
 	)

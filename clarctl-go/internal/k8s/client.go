@@ -149,12 +149,16 @@ func (c *Client) GetWarningEvents(ctx context.Context, namespaces []string, maxC
 			if i >= maxCount {
 				break
 			}
+			msg := ev.Message
+			if len(msg) > 200 {
+				msg = msg[:200] + "..."
+			}
 			out = append(out, EventSummary{
 				Namespace: ev.Namespace,
 				Type:      ev.Type,
 				Reason:    ev.Reason,
 				Object:    fmt.Sprintf("%s/%s", ev.InvolvedObject.Kind, ev.InvolvedObject.Name),
-				Message:   ev.Message,
+				Message:   msg,
 				Count:     ev.Count,
 			})
 		}
