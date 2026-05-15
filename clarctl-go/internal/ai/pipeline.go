@@ -77,8 +77,12 @@ func (p *Pipeline) RunScan(ctx context.Context) (*incident.Report, error) {
 		if isRateLimit(err) && attempt < maxRetries-1 {
 			wait := retryBackoffs[attempt]
 			fmt.Printf("\n⚠  Rate limit hit — retrying in %s (%d/%d)...\n\n", wait, attempt+2, maxRetries)
-			time.Sleep(wait)
-			continue
+			select {
+			case <-time.After(wait):
+				continue
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
 		}
 		break
 	}
