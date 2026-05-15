@@ -4,6 +4,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -32,7 +35,11 @@ var scanCmd = &cobra.Command{
 		ui.PrintBanner()
 
 		cfg.DryRun = scanDryRun
-		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(cfg.AgentTimeoutSeconds*6)*time.Second)
+
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+
+		scanCtx, cancel := context.WithTimeout(ctx, time.Duration(cfg.AgentTimeoutSeconds*6)*time.Second)
 		defer cancel()
 
 		fmt.Printf("Scanning namespaces: %v | LLM: %s | Dry Run: %v\n\n",
@@ -45,8 +52,12 @@ var scanCmd = &cobra.Command{
 			return fmt.Errorf("init AI pipeline: %w", err)
 		}
 
-		report, err := pipe.RunScan(ctx)
+		report, err := pipe.RunScan(scanCtx)
 		if err != nil {
+			if ctx.Err() != nil {
+				fmt.Println("\nScan canceled by user.")
+				return nil
+			}
 			return fmt.Errorf("scan failed: %w", err)
 		}
 
