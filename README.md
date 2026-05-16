@@ -169,12 +169,13 @@ sudo make install
 - [x] **`clarctl` — standalone Go CLI binary (~40MB)**
 - [x] 6-stage AI agent pipeline (Triage/Metrics/Logs/Infra/Runbook/Commander)
 - [x] SQLite-backed incident history & MTTR tracking
-- [ ] Namespace-level observability
-- [ ] Multi-cluster support
+- [x] Namespace-level observability
+- [x] Multi-cluster support
+- [x] Web dashboard with filtering & sorting
+- [x] Slack / PagerDuty alerting
 - [ ] Prometheus & Loki deep integration
-- [ ] Web dashboard with filtering & sorting
 - [ ] Integration with OpenTelemetry (OTel)
-- [ ] Slack / PagerDuty alerting
+
 
 ---
 
