@@ -13,6 +13,8 @@ services:
     build:
       context: ./hub
       dockerfile: Dockerfile
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8822:8822"
     environment:
