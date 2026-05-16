@@ -10,9 +10,11 @@
 
 services:
   hub:
-    build:
-      context: ./hub
-      dockerfile: Dockerfile
+    # build:
+    #   context: ./hub
+    #   dockerfile: Dockerfile
+    image: vaishnav88sk/claritty-hub:v1.0.0
+    imagePullPolicy: Always
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
