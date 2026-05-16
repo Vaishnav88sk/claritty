@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Claritty - AI-SRE Dashboard</title>
+  <meta name="description" content="Claritty AI-SRE multi-cluster observability dashboard - RCA, incidents, and automated remediation" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-icon">◈</span>
+      <span class="brand-name">Claritty</span>
+      <span class="brand-tag">AI-SRE</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-view="overview" onclick="navigate('overview')">
+        <span class="nav-icon">⬡</span> Overview
+      </a>
+      <a href="#" class="nav-item" data-view="clusters" onclick="navigate('clusters')">
+        <span class="nav-icon">⬡</span> Clusters
+      </a>
+      <div class="nav-divider"></div>
+      <a href="#" class="nav-item" data-view="incidents" onclick="navigate('incidents')">
+        <span class="nav-icon">⬡</span> All Incidents
+      </a>
+      <a href="#" class="nav-item" data-view="analytics" onclick="navigate('analytics')">
+        <span class="nav-icon">⬡</span> Analytics
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <span class="status-dot" id="hub-status-dot"></span>
+      <span id="hub-status-text">Connecting…</span>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="main">
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="topbar-title" id="page-title">Overview</div>
+      <div class="topbar-actions">
+        <span class="last-refresh" id="last-refresh">—</span>
+        <button class="btn btn-ghost" onclick="refreshAll()">↻ Refresh</button>
+      </div>
+    </header>
+
+    <!-- Views -->
+    <div class="content" id="view-overview">
+      <div class="stats-grid" id="global-stats"></div>
+      <h2 class="section-title">Clusters</h2>
+      <div class="clusters-grid" id="clusters-overview"></div>
+      <h2 class="section-title">Recent Incidents</h2>
+      <div id="recent-incidents-table"></div>
+    </div>
+
+    <div class="content hidden" id="view-clusters">
+      <div class="clusters-grid" id="clusters-detail"></div>
+    </div>
+
+    <div class="content hidden" id="view-incidents">
+      <div class="filter-bar">
+        <select id="filter-cluster" onchange="filterIncidents()"><option value="">All Clusters</option></select>
+        <select id="filter-severity" onchange="filterIncidents()">
+          <option value="">All Severities</option>
+          <option value="SEV1">SEV1</option>
+          <option value="SEV2">SEV2</option>
+          <option value="SEV3">SEV3</option>
+        </select>
+        <select id="filter-status" onchange="filterIncidents()">
+          <option value="">All Statuses</option>
+          <option value="INVESTIGATING">Investigating</option>
+          <option value="MITIGATED">Mitigated</option>
+          <option value="RESOLVED">Resolved</option>
+        </select>
+      </div>
+      <div id="all-incidents-table"></div>
+    </div>
+
+    <div class="content hidden" id="view-analytics">
+      <div class="stats-grid" id="analytics-stats"></div>
+    </div>
+  </main>
+
+  <!-- Incident Detail Modal -->
+  <div class="modal-overlay hidden" id="modal-overlay" onclick="closeModal()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div id="modal-content"></div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
