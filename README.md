@@ -1,6 +1,4 @@
 # Claritty - AI-SRE for Kubernetes
-### Production-grade AIOps platform for cluster observability, incident response & auto-remediation
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/Vaishnav88sk/claritty?filename=clarctl-go%2Fgo.mod&label=Go)](https://golang.org)
 [![Latest Release](https://img.shields.io/github/v/release/Vaishnav88sk/claritty?color=blue&label=Release)](https://github.com/Vaishnav88sk/claritty/releases)
@@ -8,7 +6,7 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Vaishnav88sk/claritty/pulls)
 <!-- [![GitHub stars](https://img.shields.io/github/stars/Vaishnav88sk/claritty?style=social)](https://github.com/Vaishnav88sk/claritty/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/Vaishnav88sk/claritty?style=social)](https://github.com/Vaishnav88sk/claritty/network/members) -->
-
+### Production-grade AIOps platform for cluster observability, incident response & auto-remediation
 
 Claritty is an **open-source, cloud-native AI Site Reliability Engineering platform** for Kubernetes clusters.
 It combines real-time cluster telemetry with a **6-stage AI agent pipeline** to automatically detect, diagnose, and remediate incidents, reducing MTTR from hours to minutes.
