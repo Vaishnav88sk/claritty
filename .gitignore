@@ -1,5 +1,37 @@
-.git/
-backend/claritty-backend
-backend/metrics.db
-claritty-agent/claritty-agent
+# Binaries
+clarctl-go/clarctl
+sre-agent/agent/agent
+sre-agent/hub/hub
 claritty-agent-client/claritty-agent-client
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Go
+bin/
+obj/
+*.exe
+*.test
+*.out
+vendor/
+
+# Database / Local state
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment variables
+.env
+.env.local
