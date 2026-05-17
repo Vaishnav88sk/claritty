@@ -5,6 +5,8 @@ Claritty is composed of two primary operating modes:
 1. **Claritty CLI (`clarctl`)**: A local command-line tool for SREs to instantly diagnose and remediate issues in a Kubernetes cluster they have access to.
 2. **Claritty SRE Agent (`sre-agent`)**: An in-cluster autonomous agent that continuously monitors namespaces, paired with a central Hub server to provide a web-based dashboard and alerting.
 
+![Claritty CLI Output Demo](images/clarctl_demo.png)
+
 ## Example: Diagnosing a CrashLoopBackOff
 
 If a pod is in a `CrashLoopBackOff` state, Claritty's AI pipeline executes the following steps:

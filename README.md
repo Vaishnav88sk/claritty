@@ -21,13 +21,62 @@ A lightweight, in-cluster daemon (the Agent) that continuously monitors your inf
 ## ✨ Features
 
 - 📊 **Node-level & Pod-level Metrics**: Real-time CPU, memory, and resource usage collection.
-- ⚡ **Auto Incident Detection**: Detects CrashLoopBackOff, OOMKilled, Pending pods, Node Pressure, ImagePullBackOff, and more.
+- ⚡ **Auto Incident Detection**: Detects complex cascading failures, API server throttling, DNS resolution timeouts, Split-Brain StatefulSets, network partition deadlocks, alongside standard CrashLoopBackOff, OOMKilled, and Pending states.
 - 🧠 **6-Stage AI Agent Pipeline**: Triage -> Metrics -> Logs -> Infra -> Runbook -> Commander agents collaboratively diagnose root causes.
 - 🚨 **Interactive Auto-Remediation (CLI)**: Proposes step-by-step kubectl fixes locally. Prompts `y / dry / n` before executing anything.
 - 🌐 **Centralized Dashboard (Agent)**: Web UI to view multi-cluster health, active incidents, and automated remediation plans.
 - 🔒 **Safety First**: All remediation commands are validated against a strict allowlist. Destructive commands are flagged.
 - 📖 **Built-in Runbooks**: Battle-tested YAML runbooks for common failure modes embedded directly in the logic.
 - 🗄 **Incident History**: Database-backed incident logging with MTTR tracking and status lifecycle.
+
+---
+
+## 🚀 Installation (For End Users)
+
+You can quickly install and deploy Claritty without needing to build from source. Choose the mode you want to use.
+
+### Option 1: Install Clarctl CLI (Local Tool)
+Download the pre-compiled binary to your local machine to diagnose your clusters instantly:
+
+```bash
+# 1. Download the latest binary (Linux/macOS)
+curl -sL https://github.com/Vaishnav88sk/claritty/releases/latest/download/clarctl-linux-amd64 -o clarctl
+
+# 2. Make it executable and move to PATH
+chmod +x clarctl
+sudo mv clarctl /usr/local/bin/
+
+# 3. Set your AI provider API key
+export GROQ_API_KEY="your-api-key-here"
+
+# 4. Run help
+clarctl -h
+
+# 5. Run a scan!
+clarctl scan
+```
+
+### Option 2: Deploy the SRE Agent & Hub (In-Cluster)
+Deploy the centralized dashboard and the agent into your clusters for continuous monitoring. For detailed steps, see [INSTALLATION.md](INSTALLATION.md).
+
+**Start the Hub Server (Dashboard)**
+```bash
+# Run the Hub via Docker Compose
+export DATABASE_URL="postgresql://user:pass@host:5432/claritty?sslmode=require"
+
+curl -sL https://raw.githubusercontent.com/Vaishnav88sk/claritty/master/sre-agent/docker-compose.yml -o docker-compose.yml
+docker-compose up -d
+# View dashboard at http://localhost:8822
+```
+
+**Deploy the Agent to your Clusters**
+```bash
+# Apply agent manifests
+kubectl apply -f https://raw.githubusercontent.com/Vaishnav88sk/claritty/master/sre-agent/deploy/agent-rbac.yaml
+kubectl apply -f https://raw.githubusercontent.com/Vaishnav88sk/claritty/master/sre-agent/deploy/agent-configmap.yaml
+kubectl apply -f https://raw.githubusercontent.com/Vaishnav88sk/claritty/master/sre-agent/deploy/agent-deployment.yaml
+```
+*(Remember to update the ConfigMap with your specific Hub IP and Cluster Name!)*
 
 ---
 
@@ -47,60 +96,31 @@ Cluster C (qa)   ──► claritty-agent ─┘         │
 
 ---
 
-## 🚀 Getting Started & Installation
+## 🛠️ Getting Started (For Developers)
 
-You need an LLM API key (Groq, OpenAI, or Mistral) to power the AI analysis. Set your provider using the `LLM_PROVIDER` and `LLM_MODEL` environment variables.
+If you want to contribute, modify the code, or build from source:
 
-### 1. Installing Clarctl CLI
-To use the CLI locally:
 ```bash
 # Clone the repository
 git clone https://github.com/Vaishnav88sk/claritty.git
-cd claritty/clarctl-go
+cd claritty
 
-# Build the binary
+# Building the CLI
+cd clarctl-go
+go mod tidy
 go build -o clarctl .
-sudo mv clarctl /usr/local/bin/
 
-# Set your API Key
-export GROQ_API_KEY="your-api-key-here"
+# Running the Hub from source
+cd ../sre-agent/hub
+export DATABASE_URL="postgresql://user:pass@host:5432/claritty"
+go run .
 
-# Run a scan on the default namespace
-clarctl scan namespace default
-```
-
-### 2. Installing the SRE Agent & Hub
-To deploy the continuous monitoring solution:
-
-**Start the Hub Server (Central Dashboard):**
-```bash
-cd claritty/sre-agent
-
-# Set up PostgreSQL and start the Hub
-export DATABASE_URL="postgresql://user:pass@host:5432/claritty?sslmode=require"
-docker-compose up -d
-
-# Open http://localhost:8822 in your browser
-```
-
-**Deploy the Agent to your Clusters:**
-```bash
-cd claritty/sre-agent/deploy
-
-# Configure agent-configmap.yaml with your Hub URL and Cluster Name
-nano agent-configmap.yaml
-
-# Apply the configurations
-kubectl apply -f agent-rbac.yaml
-kubectl apply -f agent-configmap.yaml
-
-# Provide the AI Key
-kubectl create secret generic claritty-agent-secrets \
-  -n claritty \
-  --from-literal=GROQ_API_KEY=your_key_here
-
-# Deploy the agent
-kubectl apply -f agent-deployment.yaml
+# Running the Agent from source locally
+cd ../agent
+export CLARITTY_CLUSTER_NAME="local-dev"
+export CLARITTY_HUB_URL="http://localhost:8822"
+export GROQ_API_KEY="your_key_here"
+go run .
 ```
 
 ---
@@ -125,6 +145,8 @@ Execute? [y/N/dry]: y
 ...
 ```
 
+![Claritty CLI Output Demo](docs/images/claritty-clarctl-1.png)
+
 ### Hub Dashboard Incident Card
 When the `sre-agent` runs in the cluster, it pushes structured JSON to the Hub:
 ```json
@@ -144,6 +166,7 @@ When the `sre-agent` runs in the cluster, it pushes structured JSON to the Hub:
   ]
 }
 ```
+![Claritty Hub Dashboard Output Demo](docs/images/claritty-ai-sre-1.png)
 
 ---
 
