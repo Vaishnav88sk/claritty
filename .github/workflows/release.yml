@@ -1,0 +1,53 @@
+name: Build and Release clarctl
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Cross-compile and Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+
+      - name: Run tests
+        working-directory: clarctl-go
+        run: go test ./...
+
+      - name: Build release binaries
+        working-directory: clarctl-go
+        run: make cross
+
+      - name: Create checksums
+        working-directory: clarctl-go/dist
+        run: sha256sum clarctl-* > checksums.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            clarctl-go/dist/clarctl-linux-amd64
+            clarctl-go/dist/clarctl-linux-arm64
+            clarctl-go/dist/clarctl-darwin-amd64
+            clarctl-go/dist/clarctl-darwin-arm64
+            clarctl-go/dist/clarctl-windows-amd64.exe
+            clarctl-go/dist/checksums.txt
+          generate_release_notes: true

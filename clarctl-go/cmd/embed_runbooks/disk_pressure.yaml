@@ -1,0 +1,64 @@
+name: Disk Pressure Recovery
+description: >
+  Handles nodes experiencing DiskPressure condition, which causes
+  pod eviction and new pod scheduling failures. Cleans up unused
+  container images, logs, and temporary files.
+severity: SEV1
+category: disk_pressure
+triggers:
+  - node condition DiskPressure == True
+  - pod eviction reason == Evicted
+  - ephemeral-storage usage high
+
+diagnosis:
+  - Check which node has disk pressure
+  - Identify what's consuming disk (images, logs, data volumes, emptyDir)
+  - Check if any pods have been evicted already
+  - Check if PVCs are full
+
+steps:
+  - step_number: 1
+    description: "Identify nodes with DiskPressure condition"
+    command: "kubectl get nodes -o custom-columns=NAME:.metadata.name,DISK:.status.conditions[?(@.type==\"DiskPressure\")].status"
+    is_destructive: false
+    is_automated: true
+
+  - step_number: 2
+    description: "List evicted pods in the affected namespace"
+    command: "kubectl get pods -n <NAMESPACE> --field-selector status.phase=Failed -o wide"
+    is_destructive: false
+    is_automated: true
+
+  - step_number: 3
+    description: "Delete evicted pods to clean up resources"
+    command: "kubectl delete pods -n <NAMESPACE> --field-selector status.phase=Failed"
+    is_destructive: true
+    is_automated: false
+
+  - step_number: 4
+    description: >
+      Cordon the node to prevent new pod scheduling until disk is recovered.
+    command: "kubectl cordon <NODE_NAME>"
+    is_destructive: false
+    is_automated: false
+
+  - step_number: 5
+    description: >
+      SSH to the node and prune unused container images.
+      For containerd: crictl rmi --prune
+      For docker: docker system prune -af
+    command: null
+    is_destructive: true
+    is_automated: false
+
+  - step_number: 6
+    description: "After disk recovery, uncordon the node"
+    command: "kubectl uncordon <NODE_NAME>"
+    is_destructive: false
+    is_automated: false
+
+notes:
+  - "Container images are usually the largest disk consumer on nodes"
+  - "Enable imagePullPolicy: Always to avoid stale cached images"
+  - "Add ephemeral-storage limits to pods to prevent single pod disk abuse"
+  - "Consider node autoscaling or larger disks if this is recurring"

@@ -1,0 +1,35 @@
+# docker-compose.yml — Run the Claritty Hub locally
+# Requirements: Docker + a PostgreSQL connection string
+#
+# Usage:
+#   export DATABASE_URL=postgresql://user:password@host:5432/claritty
+#   export GROQ_API_KEY=your_key_here
+#   docker-compose up
+#
+# Then open: http://localhost:8822
+
+services:
+  hub:
+    # build:
+    #   context: ./hub
+    #   dockerfile: Dockerfile
+    image: vaishnav88sk/claritty-hub:v1.0.0
+    imagePullPolicy: Always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "8822:8822"
+    environment:
+      HUB_PORT: "8822"
+      DATABASE_URL: "${DATABASE_URL}"
+      SLACK_WEBHOOK_URL: "${SLACK_WEBHOOK_URL:-}"
+      SLACK_CHANNEL: "${SLACK_CHANNEL:-#sre-alerts}"
+      CLARITTY_HUB_API_KEY: "${CLARITTY_HUB_API_KEY:-}"
+    volumes:
+      - ./hub/dashboard:/app/dashboard:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8822/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

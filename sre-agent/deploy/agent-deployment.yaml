@@ -1,0 +1,80 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: claritty-agent
+  namespace: claritty
+  labels:
+    app: claritty-agent
+    version: v1.0.0
+spec:
+  replicas: 1  # Always 1 — the K8s API gives a global cluster view
+  selector:
+    matchLabels:
+      app: claritty-agent
+  template:
+    metadata:
+      labels:
+        app: claritty-agent
+    spec:
+      serviceAccountName: claritty-agent
+
+      # Tolerate any node taints so the agent can always run
+      tolerations:
+        - operator: Exists
+
+      containers:
+        - name: agent
+          image: vaishnav88sk/claritty-ai-sre-agent:v1.0.0
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 9090
+              name: http
+
+          # Env from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: claritty-agent-config
+            - secretRef:
+                name: claritty-agent-secrets
+
+          # Lightweight resource footprint — same as Datadog Cluster Agent
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+
+          # Liveness / Readiness probes
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 9090
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 9090
+            initialDelaySeconds: 5
+            periodSeconds: 10
+
+      # Restart policy for production resilience
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: claritty-agent
+  namespace: claritty
+spec:
+  selector:
+    app: claritty-agent
+  ports:
+    - port: 9090
+      targetPort: 9090
+      name: http
+  type: ClusterIP

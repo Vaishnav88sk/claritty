@@ -1,0 +1,14 @@
+crewai
+litellm
+groq
+mistralai
+python-dotenv
+kubernetes
+pydantic
+requests
+rich
+click
+pyyaml
+scipy
+numpy
+aiohttp

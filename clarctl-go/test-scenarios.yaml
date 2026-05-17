@@ -1,0 +1,125 @@
+---
+# 1. CrashLoop pod — exits immediately with code 1
+apiVersion: v1
+kind: Pod
+metadata:
+  name: crashloop-demo
+  namespace: default
+  labels:
+    app: crashloop-demo
+    scenario: crash-loop
+spec:
+  containers:
+  - name: crasher
+    image: busybox:1.35
+    command: ["/bin/sh", "-c"]
+    args:
+    - |
+      echo "Starting app..."
+      echo "ERROR: Database connection refused: connection timeout after 30s"
+      echo "FATAL: Cannot connect to postgres://db:5432/myapp"
+      echo "Traceback (most recent call last):"
+      echo "  File main.py, line 42, in connect_db"
+      echo "  ConnectionRefusedError: [Errno 111] Connection refused"
+      exit 1
+    resources:
+      requests:
+        memory: "32Mi"
+        cpu: "10m"
+      limits:
+        memory: "64Mi"
+        cpu: "50m"
+  restartPolicy: Always
+
+---
+# 2. OOM pod — allocates too much memory
+apiVersion: v1
+kind: Pod
+metadata:
+  name: oom-demo
+  namespace: default
+  labels:
+    app: oom-demo
+    scenario: oom-kill
+spec:
+  containers:
+  - name: memory-hog
+    image: polinux/stress
+    command: ["stress"]
+    args: ["--vm", "1", "--vm-bytes", "200M", "--timeout", "60s"]
+    resources:
+      requests:
+        memory: "50Mi"
+        cpu: "10m"
+      limits:
+        memory: "100Mi"  # will be OOMKilled — trying to allocate 200M
+        cpu: "200m"
+  restartPolicy: Always
+
+---
+# 3. ImagePullBackOff — intentionally bad image
+apiVersion: v1
+kind: Pod
+metadata:
+  name: badimage-demo
+  namespace: default
+  labels:
+    app: badimage-demo
+    scenario: image-pull
+spec:
+  containers:
+  - name: broken
+    image: this-image-does-not-exist/claritty:broken-v99
+    resources:
+      requests:
+        memory: "32Mi"
+        cpu: "10m"
+  restartPolicy: Always
+
+---
+# 4. Pending pod — resource request too high for minikube node
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pending-demo
+  namespace: default
+  labels:
+    app: pending-demo
+    scenario: pending
+spec:
+  containers:
+  - name: resource-hog
+    image: nginx:stable
+    resources:
+      requests:
+        memory: "100Gi"   # minikube node doesn't have 100Gi
+        cpu: "64"
+      limits:
+        memory: "100Gi"
+        cpu: "64"
+  restartPolicy: Always
+
+---
+# 5. Healthy pod — should be detected as healthy
+apiVersion: v1
+kind: Pod
+metadata:
+  name: healthy-demo
+  namespace: default
+  labels:
+    app: healthy-demo
+    scenario: healthy
+spec:
+  containers:
+  - name: nginx
+    image: nginx:stable
+    ports:
+    - containerPort: 80
+    resources:
+      requests:
+        memory: "32Mi"
+        cpu: "10m"
+      limits:
+        memory: "128Mi"
+        cpu: "200m"
+  restartPolicy: Always

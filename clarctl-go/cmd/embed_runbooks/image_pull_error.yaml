@@ -1,0 +1,67 @@
+name: ImagePullBackOff Recovery
+description: >
+  Handles pods stuck in ImagePullBackOff or ErrImagePull state.
+  Diagnoses registry auth issues, missing images, or network problems.
+severity: SEV2
+category: image_pull
+triggers:
+  - ImagePullBackOff
+  - ErrImagePull
+  - event reason == Failed with image pull message
+
+diagnosis:
+  - Check if image tag exists in registry
+  - Check if imagePullSecret is configured and valid
+  - Check network connectivity to registry from the node
+  - Check for rate limiting (Docker Hub 429 errors)
+
+steps:
+  - step_number: 1
+    description: "Get the exact error message from pod events"
+    command: "kubectl describe pod <POD_NAME> -n <NAMESPACE>"
+    is_destructive: false
+    is_automated: true
+
+  - step_number: 2
+    description: "Check if imagePullSecrets are attached to the service account"
+    command: "kubectl get serviceaccount default -n <NAMESPACE> -o yaml"
+    is_destructive: false
+    is_automated: true
+
+  - step_number: 3
+    description: "List existing image pull secrets in the namespace"
+    command: "kubectl get secrets -n <NAMESPACE> --field-selector type=kubernetes.io/dockerconfigjson"
+    is_destructive: false
+    is_automated: true
+
+  - step_number: 4
+    description: >
+      If secret is missing, create a new registry secret.
+      Replace values with actual registry credentials.
+    command: >
+      kubectl create secret docker-registry regcred
+      --docker-server=<REGISTRY>
+      --docker-username=<USERNAME>
+      --docker-password=<PASSWORD>
+      -n <NAMESPACE>
+    is_destructive: false
+    is_automated: false
+
+  - step_number: 5
+    description: "Patch service account to use the new secret"
+    command: >
+      kubectl patch serviceaccount default -n <NAMESPACE>
+      -p '{"imagePullSecrets": [{"name": "regcred"}]}'
+    is_destructive: false
+    is_automated: false
+
+  - step_number: 6
+    description: "Delete the stuck pod to trigger a fresh pull attempt"
+    command: "kubectl delete pod <POD_NAME> -n <NAMESPACE>"
+    is_destructive: true
+    is_automated: false
+
+notes:
+  - "Docker Hub has a 100/6h pull rate limit for unauthenticated users"
+  - "Use image digests instead of :latest tags for reproducibility"
+  - "Consider a private registry mirror to avoid rate limits"
