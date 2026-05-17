@@ -1,0 +1,15 @@
+extends: default
+
+rules:
+  line-length: disable
+  document-start: disable
+  truthy: disable
+  comments: disable
+  trailing-spaces: disable
+  new-line-at-end-of-file: disable
+  indentation: disable
+
+ignore: |
+  ai-sre/venv/
+  .venv/
+  vendor/
