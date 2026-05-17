@@ -40,19 +40,15 @@ Download the pre-compiled binary to your local machine to diagnose your clusters
 
 ```bash
 # 1. Download the latest binary (Linux/macOS)
-curl -sL https://github.com/Vaishnav88sk/claritty/releases/latest/download/clarctl-linux-amd64 -o clarctl
+curl -sL https://raw.githubusercontent.com/Vaishnav88sk/claritty/clarctl-go/clarctl-go/install.sh | bash
+```
+```bash
+# 2. Run help
 
-# 2. Make it executable and move to PATH
-chmod +x clarctl
-sudo mv clarctl /usr/local/bin/
-
-# 3. Set your AI provider API key
-export GROQ_API_KEY="your-api-key-here"
-
-# 4. Run help
 clarctl -h
-
-# 5. Run a scan!
+```
+```bash
+# 3. Run a scan!
 clarctl scan
 ```
 
@@ -63,7 +59,8 @@ Deploy the centralized dashboard and the agent into your clusters for continuous
 ```bash
 # Run the Hub via Docker Compose
 export DATABASE_URL="postgresql://user:pass@host:5432/claritty?sslmode=require"
-
+```
+```bash
 curl -sL https://raw.githubusercontent.com/Vaishnav88sk/claritty/master/sre-agent/docker-compose.yml -o docker-compose.yml
 docker-compose up -d
 # View dashboard at http://localhost:8822
