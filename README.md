@@ -1,4 +1,14 @@
 # Claritty - AI-SRE for Kubernetes
+
+```text
+ ██████╗██╗      █████╗ ██████╗ ██╗████████╗████████╗██╗   ██╗
+██╔════╝██║     ██╔══██╗██╔══██╗██║╚══██╔══╝╚══██╔══╝╚██╗ ██╔╝
+██║     ██║     ███████║██████╔╝██║   ██║      ██║    ╚████╔╝ 
+██║     ██║     ██╔══██║██╔══██╗██║   ██║      ██║     ╚██╔╝  
+╚██████╗███████╗██║  ██║██║  ██║██║   ██║      ██║      ██║   
+ ╚═════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝   ╚═╝      ╚═╝      ╚═╝   
+```
+
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/Vaishnav88sk/claritty?filename=clarctl-go%2Fgo.mod&label=Go)](https://golang.org)
 [![Latest Release](https://img.shields.io/github/v/release/Vaishnav88sk/claritty?color=blue&label=Release)](https://github.com/Vaishnav88sk/claritty/releases)
@@ -6,35 +16,11 @@
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Vaishnav88sk/claritty/pulls)
 <!-- [![GitHub stars](https://img.shields.io/github/stars/Vaishnav88sk/claritty?style=social)](https://github.com/Vaishnav88sk/claritty/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/Vaishnav88sk/claritty?style=social)](https://github.com/Vaishnav88sk/claritty/network/members) -->
+
 ### Production-grade AIOps platform for cluster observability, incident response & auto-remediation
 
 Claritty is an **open-source, cloud-native AI Site Reliability Engineering platform** for Kubernetes clusters.
 It combines real-time cluster telemetry with a **6-stage AI agent pipeline** to automatically detect, diagnose, and remediate incidents, reducing MTTR from hours to minutes.
-
----
-
-## 🌟 The Two Modes of Claritty
-
-Claritty provides two powerful ways to interact with your Kubernetes infrastructure, depending on your needs:
-
-### 1. Clarctl CLI (Local Remediation Tool)
-A powerful command-line interface run from your local machine. It connects to your current Kubernetes context to instantly analyze namespaces or specific pods, generate an RCA (Root Cause Analysis), and offer interactive, step-by-step remediation commands. Perfect for on-call engineers debugging live incidents.
-
-### 2. SRE Agent & Hub (Centralized Platform)
-A lightweight, in-cluster daemon (the Agent) that continuously monitors your infrastructure. It autonomously performs the 6-stage AI pipeline on failing resources and pushes structured incident reports to a centralized Hub server. The Hub provides a beautiful web dashboard for a multi-cluster overview, Slack alerts, and detailed RCA records. Perfect for production monitoring.
-
----
-
-## ✨ Features
-
-- 📊 **Node-level & Pod-level Metrics**: Real-time CPU, memory, and resource usage collection.
-- ⚡ **Auto Incident Detection**: Detects complex cascading failures, API server throttling, DNS resolution timeouts, Split-Brain StatefulSets, network partition deadlocks, alongside standard CrashLoopBackOff, OOMKilled, and Pending states.
-- 🧠 **6-Stage AI Agent Pipeline**: Triage -> Metrics -> Logs -> Infra -> Runbook -> Commander agents collaboratively diagnose root causes.
-- 🚨 **Interactive Auto-Remediation (CLI)**: Proposes step-by-step kubectl fixes locally. Prompts `y / dry / n` before executing anything.
-- 🌐 **Centralized Dashboard (Agent)**: Web UI to view multi-cluster health, active incidents, and automated remediation plans.
-- 🔒 **Safety First**: All remediation commands are validated against a strict allowlist. Destructive commands are flagged.
-- 📖 **Built-in Runbooks**: Battle-tested YAML runbooks for common failure modes embedded directly in the logic.
-- 🗄 **Incident History**: Database-backed incident logging with MTTR tracking and status lifecycle.
 
 ---
 
@@ -81,6 +67,31 @@ kubectl apply -f https://raw.githubusercontent.com/Vaishnav88sk/claritty/master/
 kubectl apply -f https://raw.githubusercontent.com/Vaishnav88sk/claritty/master/sre-agent/deploy/agent-deployment.yaml
 ```
 *(Remember to update the ConfigMap with your specific Hub IP and Cluster Name!)*
+
+---
+
+## 🌟 The Two Modes of Claritty
+
+Claritty provides two powerful ways to interact with your Kubernetes infrastructure, depending on your needs:
+
+### 1. Clarctl CLI (Local Remediation Tool)
+A powerful command-line interface run from your local machine. It connects to your current Kubernetes context to instantly analyze namespaces or specific pods, generate an RCA (Root Cause Analysis), and offer interactive, step-by-step remediation commands. Perfect for on-call engineers debugging live incidents.
+
+### 2. SRE Agent & Hub (Centralized Platform)
+A lightweight, in-cluster daemon (the Agent) that continuously monitors your infrastructure. It autonomously performs the 6-stage AI pipeline on failing resources and pushes structured incident reports to a centralized Hub server. The Hub provides a beautiful web dashboard for a multi-cluster overview, Slack alerts, and detailed RCA records. Perfect for production monitoring.
+
+---
+
+## ✨ Features
+
+- 📊 **Node-level & Pod-level Metrics**: Real-time CPU, memory, and resource usage collection.
+- ⚡ **Auto Incident Detection**: Detects complex cascading failures, API server throttling, DNS resolution timeouts, Split-Brain StatefulSets, network partition deadlocks, alongside standard CrashLoopBackOff, OOMKilled, and Pending states.
+- 🧠 **6-Stage AI Agent Pipeline**: Triage -> Metrics -> Logs -> Infra -> Runbook -> Commander agents collaboratively diagnose root causes.
+- 🚨 **Interactive Auto-Remediation (CLI)**: Proposes step-by-step kubectl fixes locally. Prompts `y / dry / n` before executing anything.
+- 🌐 **Centralized Dashboard (Agent)**: Web UI to view multi-cluster health, active incidents, and automated remediation plans.
+- 🔒 **Safety First**: All remediation commands are validated against a strict allowlist. Destructive commands are flagged.
+- 📖 **Built-in Runbooks**: Battle-tested YAML runbooks for common failure modes embedded directly in the logic.
+- 🗄 **Incident History**: Database-backed incident logging with MTTR tracking and status lifecycle.
 
 ---
 
@@ -188,13 +199,13 @@ Claritty's pipeline is trained to handle a vast array of Kubernetes failure stat
 
 ## ⚖️ Comparison with Industry Tools
 
-| Feature | Claritty | Datadog / New Relic | Prometheus/Thanos | Robusta |
-|---|---|---|---|---|
-| In-cluster agent | ✅ Deployment 1 replica | ✅ | ✅ | ✅ |
-| AI-powered RCA | ✅ 6-stage LLM pipeline | ❌ (Mostly manual) | ❌ | Partial |
-| Multi-cluster hub | ✅ Open Source Hub | ✅ SaaS | ✅ Thanos | ✅ SaaS |
-| Self-hosted | ✅ | ❌ SaaS only | ✅ | Partial |
-| Cost | Free / Open Source | $$$$ | Free | Free/Paid |
+| Feature | Claritty | OpenSRE | Datadog / New Relic | Prometheus/Thanos | Robusta |
+|---|---|---|---|---|---|
+| In-cluster agent | ✅ Deployment 1 replica | ✅ Sidekick framework | ✅ | ✅ | ✅ |
+| AI-powered RCA | ✅ 6-stage LLM pipeline | ✅ Episodic Memory LLM | ❌ (Mostly manual) | ❌ | Partial |
+| Multi-cluster hub | ✅ Open Source Hub | ❌ Slack/API focused | ✅ SaaS | ✅ Thanos | ✅ SaaS |
+| Self-hosted | ✅ | ✅ | ❌ SaaS only | ✅ | Partial |
+| Cost | Free / Open Source | Free / Open Source | $$$$ | Free | Free/Paid |
 
 ---
 
