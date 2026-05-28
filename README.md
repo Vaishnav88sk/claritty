@@ -1,6 +1,5 @@
-# Claritty - AI-SRE for Kubernetes
-
 ![Claritty Logo](docs/images/claritty_logo.png)
+# Claritty - AI-SRE for Kubernetes
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go Version](https://img.shields.io/github/go-mod/go-version/Vaishnav88sk/claritty?filename=clarctl-go%2Fgo.mod&label=Go)](https://golang.org)
