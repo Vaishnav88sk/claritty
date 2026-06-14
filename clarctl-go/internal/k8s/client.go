@@ -170,10 +170,10 @@ func (c *Client) GetWarningEvents(ctx context.Context, namespaces []string, maxC
 
 // NodeSummary is a lightweight snapshot of a node's health.
 type NodeSummary struct {
-	Name     string
-	Ready    bool
-	Cordoned bool
-	Roles    []string
+	Name       string
+	Ready      bool
+	Cordoned   bool
+	Roles      []string
 	Conditions map[string]string
 }
 

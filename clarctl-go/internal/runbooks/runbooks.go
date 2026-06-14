@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/yaml.v3"
 	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/incident"
+	"gopkg.in/yaml.v3"
 )
 
 // RunbookFS holds the embedded runbook YAML files baked into the binary.
@@ -22,14 +22,14 @@ var RunbookFS embed.FS
 
 // Runbook is the parsed structure of a runbook YAML file.
 type Runbook struct {
-	Name        string              `yaml:"name"`
-	Description string              `yaml:"description"`
-	Severity    string              `yaml:"severity"`
-	Category    string              `yaml:"category"`
-	Triggers    []string            `yaml:"triggers"`
-	Diagnosis   []string            `yaml:"diagnosis"`
-	Steps       []RunbookStep       `yaml:"steps"`
-	Notes       []string            `yaml:"notes"`
+	Name        string        `yaml:"name"`
+	Description string        `yaml:"description"`
+	Severity    string        `yaml:"severity"`
+	Category    string        `yaml:"category"`
+	Triggers    []string      `yaml:"triggers"`
+	Diagnosis   []string      `yaml:"diagnosis"`
+	Steps       []RunbookStep `yaml:"steps"`
+	Notes       []string      `yaml:"notes"`
 }
 
 // RunbookStep mirrors the YAML step structure.

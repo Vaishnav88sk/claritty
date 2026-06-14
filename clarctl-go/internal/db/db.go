@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	_ "modernc.org/sqlite"
 	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/incident"
+	_ "modernc.org/sqlite"
 )
 
 // DB wraps the SQLite connection pool.

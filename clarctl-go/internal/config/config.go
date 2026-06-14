@@ -39,9 +39,9 @@ type Config struct {
 	LokiEnabled bool
 
 	// Alerting
-	SlackWebhookURL  string
-	AlertWebhookURL  string
-	AlertSeverities  []string
+	SlackWebhookURL string
+	AlertWebhookURL string
+	AlertSeverities []string
 
 	// Thresholds
 	CPUWarningPct      float64
@@ -60,10 +60,10 @@ type Config struct {
 	AgentTimeoutSeconds int
 
 	// Storage
-	DBPath      string
-	RunbooksDir string
-	LogPath     string
-	DryRun      bool
+	DBPath        string
+	RunbooksDir   string
+	LogPath       string
+	DryRun        bool
 	AutoRemediate bool
 }
 

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/ui"
+	"github.com/spf13/cobra"
 )
 
 var (

@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tmc/langchaingo/llms"
-	"github.com/tmc/langchaingo/llms/openai"
 	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/config"
 	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/incident"
 	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/k8s"
+	"github.com/tmc/langchaingo/llms"
+	"github.com/tmc/langchaingo/llms/openai"
 )
 
 const maxRetries = 3
@@ -431,20 +431,20 @@ Only report CONFIRMED issues with real affected pod names from the triage data. 
 
 // agentOutput is the raw JSON structure from the commander agent.
 type agentOutput struct {
-	HasIssue           bool   `json:"has_issue"`
-	Severity           string `json:"severity"`
-	Title              string `json:"title"`
-	Category           string `json:"category"`
+	HasIssue           bool     `json:"has_issue"`
+	Severity           string   `json:"severity"`
+	Title              string   `json:"title"`
+	Category           string   `json:"category"`
 	AffectedNamespaces []string `json:"affected_namespaces"`
 	AffectedServices   []struct {
 		ServiceName string `json:"service_name"`
 		Namespace   string `json:"namespace"`
 		ImpactLevel string `json:"impact_level"`
 	} `json:"affected_services"`
-	RootCause          string   `json:"root_cause"`
+	RootCause           string   `json:"root_cause"`
 	ContributingFactors []string `json:"contributing_factors"`
-	ConfidenceScore    int      `json:"confidence_score"`
-	RemediationPlan    []struct {
+	ConfidenceScore     int      `json:"confidence_score"`
+	RemediationPlan     []struct {
 		StepNumber  int    `json:"step_number"`
 		Description string `json:"description"`
 		Command     string `json:"command"`

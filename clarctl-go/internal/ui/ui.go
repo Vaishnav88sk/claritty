@@ -6,19 +6,19 @@ import (
 	"strings"
 	"time"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/incident"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 var (
 	styleBanner = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("#00D7FF")).
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#005F87")).
-		Padding(0, 2)
+			Bold(true).
+			Foreground(lipgloss.Color("#00D7FF")).
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#005F87")).
+			Padding(0, 2)
 
 	styleHeader = lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("#00D7FF"))
 	styleGood   = lipgloss.NewStyle().Foreground(lipgloss.Color("#00FF87"))
@@ -27,9 +27,9 @@ var (
 	styleDim    = lipgloss.NewStyle().Foreground(lipgloss.Color("#626262"))
 	styleBold   = lipgloss.NewStyle().Bold(true)
 	styleBox    = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("#444444")).
-		Padding(0, 1)
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("#444444")).
+			Padding(0, 1)
 )
 
 // PrintBanner renders the Claritty ASCII art banner.
