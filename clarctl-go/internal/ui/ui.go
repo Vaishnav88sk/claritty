@@ -32,6 +32,10 @@ var (
 			Padding(0, 1)
 )
 
+// Version is the CLI version. It is meant to be overridden at build time via ldflags.
+// Example: go build -ldflags "-X 'github.com/Vaishnav88sk/claritty/clarctl-go/internal/ui.Version=v1.1.0'"
+var Version = "dev"
+
 // PrintBanner renders the Claritty ASCII art banner.
 func PrintBanner() {
 	banner := `
@@ -42,7 +46,7 @@ func PrintBanner() {
 ╚██████╗███████╗██║  ██║██║  ██║██║   ██║      ██║      ██║   
  ╚═════╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝   ╚═╝      ╚═╝      ╚═╝   `
 
-	info := styleDim.Render("AI-SRE Engine  ·  v1.0  ·  Kubernetes Observability")
+	info := styleDim.Render(fmt.Sprintf("AI-SRE Engine  ·  %s  ·  Kubernetes Observability", Version))
 	fmt.Println(styleBanner.Render(banner + "\n" + info))
 	fmt.Println()
 }
