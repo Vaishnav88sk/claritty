@@ -1,0 +1,29 @@
+# codecov.yml
+# This file configures the beautiful, detailed PR comments from Codecov!
+
+coverage:
+  status:
+    # Require the overall project coverage to not drop
+    project:
+      default:
+        target: auto
+        threshold: 1%
+    # Require the new code in the PR to be tested
+    patch:
+      default:
+        target: 80%
+
+# Configure the PR Comment
+comment:
+  # The layout determines what visual elements are in the PR comment.
+  # reach: The sunburst graph
+  # diff: The coverage diff text
+  # flags: Coverage broken down by flags (if any)
+  # files: The beautiful file-by-file table breakdown
+  layout: "reach, diff, flags, files"
+  
+  # Ensure it always posts a comment, even if coverage didn't change
+  require_changes: false
+  
+  # Update the existing comment instead of creating a new one on every commit
+  behavior: default
