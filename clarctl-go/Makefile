@@ -1,7 +1,7 @@
 VERSION     ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 BINARY      := clarctl
 MODULE      := github.com/Vaishnav88sk/claritty/clarctl-go
-BUILD_FLAGS := -ldflags="-s -w -X main.Version=$(VERSION)"
+BUILD_FLAGS := -ldflags="-s -w -X github.com/Vaishnav88sk/claritty/clarctl-go/internal/ui.Version=$(VERSION)"
 DIST        := dist
 
 .PHONY: all build install clean test lint cross help
