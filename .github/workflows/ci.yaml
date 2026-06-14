@@ -1,4 +1,4 @@
-name: Claritty CI Pipeline
+name: CI Pipeline
 
 on:
   push:
@@ -10,18 +10,18 @@ on:
 
 jobs:
   lint:
-    name: GolangCI Lint
+    name: Code Quality
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Go
+      - name: Setup Go Environment
         uses: actions/setup-go@v5
         with:
           go-version: '1.25.x'
 
-      - name: Run go fmt
+      - name: Check Formatting (go fmt)
         run: |
           cd clarctl-go
           if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
@@ -30,29 +30,29 @@ jobs:
             exit 1
           fi
 
-      - name: Run go vet
+      - name: Static Analysis (go vet)
         run: |
           cd clarctl-go
           go vet ./...
 
   test:
-    name: Unit Tests & Coverage
+    name: Unit Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Go
+      - name: Setup Go Environment
         uses: actions/setup-go@v5
         with:
           go-version: '1.25.x'
 
-      - name: Run Tests
+      - name: Execute Unit Tests
         run: |
           cd clarctl-go
           go list -f '{{if len .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | xargs -r go test -v -coverprofile=coverage.txt
 
-      - name: Upload coverage reports to Codecov
+      - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
           files: ./clarctl-go/coverage.txt
