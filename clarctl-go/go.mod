@@ -1,6 +1,6 @@
 module github.com/Vaishnav88sk/claritty/clarctl-go
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/charmbracelet/lipgloss v0.12.1
