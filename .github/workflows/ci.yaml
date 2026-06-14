@@ -1,5 +1,4 @@
----
-name: Code Quality Checks
+name: Claritty CI Pipeline
 
 on:
   push:
@@ -10,39 +9,76 @@ on:
       - master
 
 jobs:
-  code_quality:
+  lint:
+    name: GolangCI Lint
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Cache npm
-        uses: actions/cache@v3
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-markdownlint
+          go-version: '1.22'
 
-      - name: Cache pip
-        uses: actions/cache@v3
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v6
         with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-quality-tools
+          version: latest
+          working-directory: clarctl-go
 
-      - name: Install Tools (minimal)
-        run: |
-          echo "Installing only what's necessary..."
-          npm install -g markdownlint-cli
-          pip install rstcheck linkchecker
+  test:
+    name: Unit Tests & Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Run Markdownlint
-        run: |
-          markdownlint '**/*.md' || true
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
 
-      - name: Run Yamllint
+      - name: Run Tests
         run: |
-          yamllint .
+          cd clarctl-go
+          go test -v -coverprofile=coverage.out ./...
 
-      - name: Run Shellcheck
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./clarctl-go/coverage.out
+          # Codecov token is not strictly required for public repos, but good practice
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+  e2e:
+    name: KinD E2E Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Kubernetes in Docker (KinD)
+        uses: helm/kind-action@v1.10.0
+
+      - name: Verify Cluster Info
+        run: kubectl cluster-info
+
+      - name: Deploy SRE Agent Manifests
         run: |
-          find . -type f -name "*.sh" -exec shellcheck {} + || true
+          # The agent expects the 'claritty' namespace to exist
+          kubectl create namespace claritty
+          
+          # Create a dummy secret so the deployment doesn't crash on missing secret
+          kubectl create secret generic claritty-agent-secrets -n claritty --from-literal=GROQ_API_KEY=dummy
+          
+          # Apply the manifests
+          kubectl apply -f sre-agent/deploy/agent-rbac.yaml
+          kubectl apply -f sre-agent/deploy/agent-configmap.yaml
+          kubectl apply -f sre-agent/deploy/agent-deployment.yaml
+
+      - name: Verify Agent Deployment
+        run: |
+          # Wait up to 90 seconds for the deployment to become ready
+          kubectl rollout status deployment/claritty-agent -n claritty --timeout=90s
