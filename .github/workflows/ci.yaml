@@ -42,7 +42,7 @@ jobs:
       - name: Run Tests
         run: |
           cd clarctl-go
-          go test -v -coverprofile=coverage.txt ./...
+          go list -f '{{if len .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | xargs -r go test -v -coverprofile=coverage.txt
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
