@@ -1,3 +1,4 @@
 dist/
 *.db
 *.log
+coverage.txt

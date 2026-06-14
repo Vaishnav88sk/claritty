@@ -30,21 +30,21 @@ const (
 
 // RemediationStep is a single actionable step in a remediation plan.
 type RemediationStep struct {
-	StepNumber  int       `json:"step_number"`
-	Description string    `json:"description"`
-	Command     string    `json:"command,omitempty"`
-	Destructive bool      `json:"is_destructive"`
-	Automated   bool      `json:"is_automated"`
-	Status      string    `json:"status"` // PENDING / APPLIED / SKIPPED / FAILED
+	StepNumber  int        `json:"step_number"`
+	Description string     `json:"description"`
+	Command     string     `json:"command,omitempty"`
+	Destructive bool       `json:"is_destructive"`
+	Automated   bool       `json:"is_automated"`
+	Status      string     `json:"status"` // PENDING / APPLIED / SKIPPED / FAILED
 	AppliedAt   *time.Time `json:"applied_at,omitempty"`
-	Result      string    `json:"result,omitempty"`
+	Result      string     `json:"result,omitempty"`
 }
 
 // ServiceImpact captures the blast radius on a specific workload.
 type ServiceImpact struct {
-	ServiceName string   `json:"service_name"`
-	Namespace   string   `json:"namespace"`
-	ImpactLevel string   `json:"impact_level"` // "down" / "degraded" / "at_risk"
+	ServiceName  string   `json:"service_name"`
+	Namespace    string   `json:"namespace"`
+	ImpactLevel  string   `json:"impact_level"` // "down" / "degraded" / "at_risk"
 	AffectedPods []string `json:"affected_pods,omitempty"`
 }
 
@@ -67,9 +67,9 @@ type Report struct {
 	AffectedServices   []ServiceImpact `json:"affected_services"`
 
 	// Analysis
-	RootCause          string   `json:"root_cause"`
+	RootCause           string   `json:"root_cause"`
 	ContributingFactors []string `json:"contributing_factors"`
-	ConfidenceScore    int      `json:"confidence_score"` // 0–100
+	ConfidenceScore     int      `json:"confidence_score"` // 0–100
 
 	// Remediation
 	RemediationPlan []RemediationStep `json:"remediation_plan"`
@@ -77,10 +77,10 @@ type Report struct {
 	AutoRemediated  bool              `json:"auto_remediated"`
 
 	// Timing
-	DetectedAt   time.Time  `json:"detected_at"`
-	MitigatedAt  *time.Time `json:"mitigated_at,omitempty"`
-	ResolvedAt   *time.Time `json:"resolved_at,omitempty"`
-	MTTRSeconds  *int       `json:"mttr_seconds,omitempty"`
+	DetectedAt  time.Time  `json:"detected_at"`
+	MitigatedAt *time.Time `json:"mitigated_at,omitempty"`
+	ResolvedAt  *time.Time `json:"resolved_at,omitempty"`
+	MTTRSeconds *int       `json:"mttr_seconds,omitempty"`
 
 	// Metadata
 	LLMModel         string  `json:"llm_model"`
@@ -92,11 +92,11 @@ type Report struct {
 func NewReport() *Report {
 	now := time.Now().UTC()
 	return &Report{
-		ID:        newIncidentID(),
-		CreatedAt: now,
-		UpdatedAt: now,
+		ID:         newIncidentID(),
+		CreatedAt:  now,
+		UpdatedAt:  now,
 		DetectedAt: now,
-		Status:    StatusOpen,
+		Status:     StatusOpen,
 	}
 }
 
@@ -130,18 +130,18 @@ func (r *Report) SeverityColor() string {
 
 // ClusterSnapshot is a point-in-time health summary persisted for trend tracking.
 type ClusterSnapshot struct {
-	Timestamp       time.Time `json:"timestamp"`
-	TotalNodes      int       `json:"total_nodes"`
-	ReadyNodes      int       `json:"ready_nodes"`
-	TotalPods       int       `json:"total_pods"`
-	RunningPods     int       `json:"running_pods"`
-	PendingPods     int       `json:"pending_pods"`
-	FailedPods      int       `json:"failed_pods"`
-	CrashloopPods   int       `json:"crashloop_pods"`
-	CPUUsagePct     float64   `json:"cpu_usage_pct"`
-	MemUsagePct     float64   `json:"mem_usage_pct"`
-	OpenIncidents   int       `json:"open_incidents"`
-	HealthScore     float64   `json:"health_score"`
+	Timestamp     time.Time `json:"timestamp"`
+	TotalNodes    int       `json:"total_nodes"`
+	ReadyNodes    int       `json:"ready_nodes"`
+	TotalPods     int       `json:"total_pods"`
+	RunningPods   int       `json:"running_pods"`
+	PendingPods   int       `json:"pending_pods"`
+	FailedPods    int       `json:"failed_pods"`
+	CrashloopPods int       `json:"crashloop_pods"`
+	CPUUsagePct   float64   `json:"cpu_usage_pct"`
+	MemUsagePct   float64   `json:"mem_usage_pct"`
+	OpenIncidents int       `json:"open_incidents"`
+	HealthScore   float64   `json:"health_score"`
 }
 
 // ComputeHealthScore calculates a 0–100 score heuristically.

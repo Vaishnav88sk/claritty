@@ -1,0 +1,45 @@
+name: KinD E2E Test
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'sre-agent/**'
+  pull_request:
+    branches:
+      - master
+    paths:
+      - 'sre-agent/**'
+
+jobs:
+  e2e:
+    name: Deploy Agent to KinD
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Kubernetes in Docker (KinD)
+        uses: helm/kind-action@v1.10.0
+
+      - name: Verify Cluster Info
+        run: kubectl cluster-info
+
+      - name: Deploy SRE Agent Manifests
+        run: |
+          # The agent expects the 'claritty' namespace to exist
+          kubectl create namespace claritty
+          
+          # Create a dummy secret so the deployment doesn't crash on missing secret
+          kubectl create secret generic claritty-agent-secrets -n claritty --from-literal=GROQ_API_KEY=dummy
+          
+          # Apply the manifests
+          kubectl apply -f sre-agent/deploy/agent-rbac.yaml
+          kubectl apply -f sre-agent/deploy/agent-configmap.yaml
+          kubectl apply -f sre-agent/deploy/agent-deployment.yaml
+
+      - name: Verify Agent Deployment
+        run: |
+          # Wait up to 90 seconds for the deployment to become ready
+          kubectl rollout status deployment/claritty-agent -n claritty --timeout=90s

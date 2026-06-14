@@ -9,10 +9,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/spf13/cobra"
 	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/ai"
 	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/incident"
 	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/ui"
+	"github.com/spf13/cobra"
 )
 
 var (
@@ -53,7 +53,7 @@ var watchCmd = &cobra.Command{
 
 			report, err := pipe.RunScan(scanCtx)
 			cancel()
-			
+
 			if err != nil {
 				if ctx.Err() != nil {
 					fmt.Println("\nWatcher stopped by user.")
