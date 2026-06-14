@@ -1,0 +1,13 @@
+# Claritty Cursor Rules
+
+You are working on **Claritty**, a decentralized AI-SRE observability platform for Kubernetes.
+
+## 🚨 CRITICAL INSTRUCTION
+Before answering any prompt or making any code changes, you **MUST** read and strictly follow the guidelines defined in the `AGENTS.md` file located in the root of this repository.
+
+### Quick Reference Rules (If AGENTS.md is unavailable):
+1. **Language & Version:** The CLI (`clarctl-go`) is written in **Go 1.25.0**. Always assume this version.
+2. **Build Integrity:** You must never break the build. Always run `go vet ./...` and `gofmt -s -w .` before committing Go code.
+3. **Tests:** Every new feature in `clarctl-go` must have an accompanying unit test using the standard `testing` package.
+4. **UI Styling:** Output must be formatted using the `charmbracelet` ecosystem (lipgloss, huh). **Never output raw JSON** unless explicitly requested via a flag.
+5. **No Heavy Dependencies:** Do not add heavy external dependencies to the CLI without asking the user.
