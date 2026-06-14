@@ -1,4 +1,4 @@
-name: KinD E2E Test
+name: E2E Pipeline
 
 on:
   push:
@@ -14,19 +14,19 @@ on:
 
 jobs:
   e2e:
-    name: Deploy Agent to KinD
+    name: End-to-End Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Kubernetes in Docker (KinD)
+      - name: Provision KinD Cluster
         uses: helm/kind-action@v1.10.0
 
-      - name: Verify Cluster Info
+      - name: Verify Cluster Availability
         run: kubectl cluster-info
 
-      - name: Deploy SRE Agent Manifests
+      - name: Deploy SRE Agent
         run: |
           # The agent expects the 'claritty' namespace to exist
           kubectl create namespace claritty
@@ -39,7 +39,7 @@ jobs:
           kubectl apply -f sre-agent/deploy/agent-configmap.yaml
           kubectl apply -f sre-agent/deploy/agent-deployment.yaml
 
-      - name: Verify Agent Deployment
+      - name: Validate Agent Readiness
         run: |
           # Wait up to 90 seconds for the deployment to become ready
           kubectl rollout status deployment/claritty-agent -n claritty --timeout=90s
