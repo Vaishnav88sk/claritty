@@ -19,7 +19,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.24.x'
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
@@ -37,7 +37,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.24.x'
 
       - name: Run Tests
         run: |
@@ -51,5 +51,3 @@ jobs:
           # Codecov token is not strictly required for public repos, but good practice
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
-
-
