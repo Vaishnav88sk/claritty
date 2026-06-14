@@ -42,12 +42,12 @@ jobs:
       - name: Run Tests
         run: |
           cd clarctl-go
-          go test -v -coverprofile=coverage.out ./...
+          go test -v -coverprofile=coverage.txt ./...
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
-          files: ./clarctl-go/coverage.out
+          files: ./clarctl-go/coverage.txt
           # Codecov token is not strictly required for public repos, but good practice
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
