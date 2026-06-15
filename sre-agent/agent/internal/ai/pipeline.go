@@ -291,10 +291,10 @@ If cluster is healthy, set has_issue=false and severity=SEV4.`,
 // ─── Parser ───────────────────────────────────────────────────────────────────
 
 type agentOutput struct {
-	HasIssue           bool   `json:"has_issue"`
-	Severity           string `json:"severity"`
-	Title              string `json:"title"`
-	Category           string `json:"category"`
+	HasIssue           bool     `json:"has_issue"`
+	Severity           string   `json:"severity"`
+	Title              string   `json:"title"`
+	Category           string   `json:"category"`
 	AffectedNamespaces []string `json:"affected_namespaces"`
 	AffectedServices   []struct {
 		ServiceName string `json:"service_name"`

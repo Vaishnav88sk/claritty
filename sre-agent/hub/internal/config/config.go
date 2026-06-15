@@ -4,11 +4,11 @@ package config
 import "os"
 
 type Config struct {
-	Port           string
-	DatabaseURL    string
-	SlackWebhook   string
-	SlackChannel   string
-	HubAPIKey      string // optional shared secret for agent auth
+	Port         string
+	DatabaseURL  string
+	SlackWebhook string
+	SlackChannel string
+	HubAPIKey    string // optional shared secret for agent auth
 }
 
 func Load() *Config {

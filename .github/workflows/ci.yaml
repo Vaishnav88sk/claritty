@@ -23,21 +23,37 @@ jobs:
 
       - name: Check Formatting (go fmt)
         run: |
-          cd clarctl-go
-          if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
-            echo "The following files are not formatted properly:"
-            gofmt -s -l .
-            exit 1
-          fi
+          for dir in $(find . -name go.mod -exec dirname {} \;); do
+            echo "Checking $dir..."
+            cd $dir
+            if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+              echo "The following files are not formatted properly in $dir:"
+              gofmt -s -l .
+              exit 1
+            fi
+            cd - > /dev/null
+          done
 
       - name: Static Analysis (go vet)
         run: |
-          cd clarctl-go
-          go vet ./...
+          for dir in $(find . -name go.mod -exec dirname {} \;); do
+            echo "Vetting $dir..."
+            cd $dir
+            go vet ./...
+            cd - > /dev/null
+          done
 
   test:
-    name: Unit Tests
+    name: Unit Tests (${{ matrix.module }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: 
+          - clarctl-go
+          - sre-agent/hub
+          - sre-agent/agent
+          - claritty-agent-client
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -49,13 +65,18 @@ jobs:
 
       - name: Execute Unit Tests
         run: |
-          cd clarctl-go
-          go list -f '{{if len .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | xargs -r go test -v -coverprofile=coverage.txt
+          cd ${{ matrix.module }}
+          # Only run tests if there are test files, otherwise just create an empty coverage.txt so upload doesn't fail
+          if go list -f '{{if len .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | grep -q .; then
+            go list -f '{{if len .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | xargs -r go test -v -coverprofile=coverage.txt
+          else
+            echo "mode: atomic" > coverage.txt
+          fi
 
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
-          files: ./clarctl-go/coverage.txt
-          # Codecov token is not strictly required for public repos, but good practice
+          files: ./${{ matrix.module }}/coverage.txt
+          flags: ${{ matrix.module }}
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
