@@ -36,6 +36,12 @@ func New(databaseURL string) (*Store, error) {
 	return s, nil
 }
 
+// NewWithDB creates a Store with an existing sql.DB connection.
+// Useful for testing with tools like go-sqlmock.
+func NewWithDB(db *sql.DB) *Store {
+	return &Store{db: db}
+}
+
 func (s *Store) migrate() error {
 	_, err := s.db.Exec(`
 	CREATE TABLE IF NOT EXISTS clusters (
