@@ -286,7 +286,7 @@ func (s *Store) GetStats() (map[string]interface{}, error) {
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 type singleRow struct {
-	row *sql.Row
+	row  *sql.Row
 	done bool
 }
 
