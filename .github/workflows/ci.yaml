@@ -64,22 +64,25 @@ jobs:
           go-version: '1.25.x'
 
       - name: Execute Unit Tests
+        id: test
         run: |
           cd ${{ matrix.module }}
-          # Only run tests if there are test files, otherwise just create an empty coverage.txt so upload doesn't fail
           if go list -f '{{if len .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | grep -q .; then
             go list -f '{{if len .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | xargs -r go test -v -coverprofile=coverage.txt
+            echo "has_tests=true" >> $GITHUB_OUTPUT
           else
-            echo "mode: atomic" > coverage.txt
+            echo "has_tests=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Generate Cobertura XML
+        if: steps.test.outputs.has_tests == 'true'
         run: |
           cd ${{ matrix.module }}
           go install github.com/boumenot/gocover-cobertura@latest
           gocover-cobertura < coverage.txt > coverage-${{ strategy.job-index }}.xml
 
       - name: Upload Coverage Artifact
+        if: steps.test.outputs.has_tests == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: coverage-${{ strategy.job-index }}
