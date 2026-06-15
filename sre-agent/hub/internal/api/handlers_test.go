@@ -96,7 +96,7 @@ func TestReceiveIncident_Unauthorized(t *testing.T) {
 
 	payload := map[string]interface{}{"id": "inc-123"}
 	body, _ := json.Marshal(payload)
-	
+
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/incidents", bytes.NewBuffer(body))
 	// NOT setting X-Claritty-Key
 	w := httptest.NewRecorder()
@@ -141,5 +141,75 @@ func TestGetStats(t *testing.T) {
 
 	if err := mock.ExpectationsWereMet(); err != nil {
 		t.Errorf("Unfulfilled DB expectations: %s", err)
+	}
+}
+
+func TestListIncidents(t *testing.T) {
+	mux, mock := setupTestApp(t)
+
+	// Mock DB expectation
+	mock.ExpectQuery(`SELECT id, cluster, namespace, severity, status, title, category, root_cause`).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "cluster", "namespace", "severity", "status", "title", "category", "root_cause",
+			"contributing_factors", "affected_services", "affected_namespaces", "remediation_plan",
+			"llm_model", "confidence", "has_issue", "detected_at", "resolved_at", "scan_duration_secs",
+		}).AddRow(
+			"inc-1", "cluster-a", "default", "SEV1", "INVESTIGATING", "Pod Crash", "Compute", "OOM",
+			"[]", "[]", "[]", "[]", "gpt-4", 90, true, time.Now(), nil, 0.0,
+		))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/incidents", nil)
+	w := httptest.NewRecorder()
+
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+}
+
+func TestGetIncidentByID(t *testing.T) {
+	mux, mock := setupTestApp(t)
+
+	// Mock DB expectation
+	mock.ExpectQuery(`SELECT id, cluster, namespace, severity, status, title, category, root_cause`).
+		WithArgs("inc-123").
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "cluster", "namespace", "severity", "status", "title", "category", "root_cause",
+			"contributing_factors", "affected_services", "affected_namespaces", "remediation_plan",
+			"llm_model", "confidence", "has_issue", "detected_at", "resolved_at", "scan_duration_secs",
+		}).AddRow(
+			"inc-123", "cluster-a", "default", "SEV1", "INVESTIGATING", "Pod Crash", "Compute", "OOM",
+			"[]", "[]", "[]", "[]", "gpt-4", 90, true, time.Now(), nil, 0.0,
+		))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/incidents/inc-123", nil)
+	w := httptest.NewRecorder()
+
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
+	}
+}
+
+func TestListClusters(t *testing.T) {
+	mux, mock := setupTestApp(t)
+
+	// Mock DB expectation
+	mock.ExpectQuery(`SELECT name, last_seen, health_score, ready_nodes, total_nodes, running_pods, pending_pods, failed_pods, crashloop, namespaces FROM clusters`).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"name", "last_seen", "health_score", "ready_nodes", "total_nodes", "running_pods", "pending_pods", "failed_pods", "crashloop", "namespaces",
+		}).AddRow(
+			"cluster-a", time.Now(), 98.5, 3, 3, 100, 0, 0, 0, "[\"default\"]",
+		))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/clusters", nil)
+	w := httptest.NewRecorder()
+
+	mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200, got %d", w.Code)
 	}
 }
