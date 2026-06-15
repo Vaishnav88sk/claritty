@@ -229,3 +229,12 @@ func truncate(s string, max int) string {
 	}
 	return s[:max] + "…"
 }
+
+// PrintConfigSuccess renders a success message after configuration.
+func PrintConfigSuccess(provider, model, path string) {
+	fmt.Println()
+	fmt.Println(styleHeader.Render("✨ Successfully configured Claritty!"))
+	fmt.Printf("%s %s\n", styleBold.Render("Provider:"), styleGood.Render(provider))
+	fmt.Printf("%s %s\n", styleBold.Render("Model:   "), styleGood.Render(model))
+	fmt.Printf("%s %s\n", styleBold.Render("Path:    "), styleDim.Render(path))
+}
