@@ -49,7 +49,10 @@ func TestPrintBanner(t *testing.T) {
 func TestPrintConfigSuccess(t *testing.T) {
 	// Redirect stdout to capture the output
 	oldStdout := os.Stdout
-	r, w, _ := os.Pipe()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("failed to create pipe: %v", err)
+	}
 	os.Stdout = w
 
 	PrintConfigSuccess("test-provider", "test-model", "/test/path/.env")
@@ -59,7 +62,9 @@ func TestPrintConfigSuccess(t *testing.T) {
 	os.Stdout = oldStdout
 
 	var buf bytes.Buffer
-	io.Copy(&buf, r)
+	if _, err := io.Copy(&buf, r); err != nil {
+		t.Fatalf("failed to read captured output: %v", err)
+	}
 	output := buf.String()
 
 	// Validate the rendered output contract
