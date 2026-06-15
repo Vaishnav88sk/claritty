@@ -64,19 +64,60 @@ jobs:
           go-version: '1.25.x'
 
       - name: Execute Unit Tests
+        id: test
         run: |
           cd ${{ matrix.module }}
-          # Only run tests if there are test files, otherwise just create an empty coverage.txt so upload doesn't fail
           if go list -f '{{if len .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | grep -q .; then
             go list -f '{{if len .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | xargs -r go test -v -coverprofile=coverage.txt
+            echo "has_tests=true" >> $GITHUB_OUTPUT
           else
-            echo "mode: atomic" > coverage.txt
+            echo "has_tests=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v5
+      - name: Generate Cobertura XML
+        if: steps.test.outputs.has_tests == 'true'
+        run: |
+          cd ${{ matrix.module }}
+          go install github.com/boumenot/gocover-cobertura@latest
+          gocover-cobertura < coverage.txt > coverage-${{ strategy.job-index }}.xml
+
+      - name: Upload Coverage Artifact
+        if: steps.test.outputs.has_tests == 'true'
+        uses: actions/upload-artifact@v4
         with:
-          files: ./${{ matrix.module }}/coverage.txt
-          flags: ${{ matrix.module }}
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: false
+          name: coverage-${{ strategy.job-index }}
+          path: ./${{ matrix.module }}/coverage-${{ strategy.job-index }}.xml
+          retention-days: 1
+
+  coverage-report:
+    name: Coverage Report
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Download all coverage artifacts
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          path: coverage-results
+          pattern: coverage-*
+          merge-multiple: true
+
+      - name: Generate Code Coverage Summary
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: coverage-results/coverage-*.xml
+          badge: true
+          format: markdown
+          hide_branch_rate: false
+          hide_complexity: true
+          indicators: true
+          output: both
+
+      - name: Add Coverage PR Comment
+        uses: marocchino/sticky-pull-request-comment@v2
+        if: github.event_name == 'pull_request'
+        with:
+          recreate: true
+          path: code-coverage-results.md
