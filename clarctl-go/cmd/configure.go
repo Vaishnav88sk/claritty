@@ -4,9 +4,12 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/config"
+	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/ui"
 	"github.com/charmbracelet/huh"
+	"github.com/joho/godotenv"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +36,17 @@ var configureCmd = &cobra.Command{
 					Title("Enter your API Key").
 					Description("Your key will be securely saved and not displayed.").
 					EchoMode(huh.EchoModePassword).
-					Value(&apiKey),
+					Value(&apiKey).
+					Validate(func(s string) error {
+						s = strings.TrimSpace(s)
+						if s == "" {
+							return fmt.Errorf("API key cannot be empty")
+						}
+						if strings.Contains(s, "\n") || strings.Contains(s, "\r") {
+							return fmt.Errorf("API key cannot contain newlines")
+						}
+						return nil
+					}),
 			),
 		)
 
@@ -41,39 +54,53 @@ var configureCmd = &cobra.Command{
 			return fmt.Errorf("configuration cancelled: %w", err)
 		}
 
-		// Determine the environment variable name based on the provider
-		var envKey string
-		var defaultModel string
+		apiKey = strings.TrimSpace(apiKey)
+		envPath := filepath.Join(config.ClarittyDir(), ".env")
 
-		switch provider {
-		case "groq":
-			envKey = "GROQ_API_KEY"
-			defaultModel = "groq/llama-3.3-70b-versatile"
-		case "mistral":
-			envKey = "MISTRAL_API_KEY"
-			defaultModel = "mistral/mistral-large-latest"
-		case "openai":
-			envKey = "OPENAI_API_KEY"
-			defaultModel = "openai/gpt-4o"
+		model, err := updateConfig(envPath, provider, apiKey)
+		if err != nil {
+			return err
 		}
 
-		clarittyDir := config.ClarittyDir()
-		if err := os.MkdirAll(clarittyDir, 0755); err != nil {
-			return fmt.Errorf("failed to create config directory: %w", err)
-		}
-
-		envPath := filepath.Join(clarittyDir, ".env")
-		content := fmt.Sprintf("LLM_PROVIDER=%s\nLLM_MODEL=%s\n%s=%s\n", provider, defaultModel, envKey, apiKey)
-
-		if err := os.WriteFile(envPath, []byte(content), 0600); err != nil {
-			return fmt.Errorf("failed to write configuration: %w", err)
-		}
-
-		fmt.Printf("\n✨ Successfully configured Claritty!\n")
-		fmt.Printf("Provider: %s\n", provider)
-		fmt.Printf("Model:    %s\n", defaultModel)
-		fmt.Printf("Config saved to: %s\n", envPath)
-
+		ui.PrintConfigSuccess(provider, model, envPath)
 		return nil
 	},
+}
+
+// updateConfig updates the .env file with the selected provider, generating default models.
+func updateConfig(envPath, provider, apiKey string) (string, error) {
+	var envKey string
+	var defaultModel string
+
+	switch provider {
+	case "groq":
+		envKey = "GROQ_API_KEY"
+		defaultModel = "groq/llama-3.3-70b-versatile"
+	case "mistral":
+		envKey = "MISTRAL_API_KEY"
+		defaultModel = "mistral/mistral-large-latest"
+	case "openai":
+		envKey = "OPENAI_API_KEY"
+		defaultModel = "openai/gpt-4o"
+	}
+
+	clarittyDir := filepath.Dir(envPath)
+	if err := os.MkdirAll(clarittyDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create config directory: %w", err)
+	}
+
+	envMap, err := godotenv.Read(envPath)
+	if err != nil {
+		envMap = make(map[string]string)
+	}
+
+	envMap["LLM_PROVIDER"] = provider
+	envMap["LLM_MODEL"] = defaultModel
+	envMap[envKey] = apiKey
+
+	if err := godotenv.Write(envMap, envPath); err != nil {
+		return "", fmt.Errorf("failed to write configuration: %w", err)
+	}
+
+	return defaultModel, nil
 }
