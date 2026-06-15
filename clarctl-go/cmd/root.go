@@ -45,8 +45,8 @@ Examples:
   clarctl show INC-ABCD1234   Show incident detail
   clarctl apply INC-ABCD1234  Apply remediation for an incident`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// Skip setup for help/completion commands
-		if cmd.Name() == "help" || cmd.Name() == "__complete" {
+		// Skip setup for help/completion commands and configure command
+		if cmd.Name() == "help" || cmd.Name() == "__complete" || cmd.Name() == "configure" {
 			return nil
 		}
 		return setup()
@@ -63,7 +63,7 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "Enable debug logging")
-	rootCmd.AddCommand(scanCmd, watchCmd, statusCmd, incidentsCmd, showCmd, applyCmd, reportCmd)
+	rootCmd.AddCommand(scanCmd, watchCmd, statusCmd, incidentsCmd, showCmd, applyCmd, reportCmd, configureCmd)
 }
 
 // setup initialises all shared dependencies.
