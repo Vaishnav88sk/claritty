@@ -20,9 +20,11 @@ type Config struct {
 	LLMMaxTokens   int
 
 	// API Keys
-	GroqAPIKey    string
-	MistralAPIKey string
-	OpenAIAPIKey  string
+	GroqAPIKey      string
+	MistralAPIKey   string
+	OpenAIAPIKey    string
+	AnthropicAPIKey string
+	OllamaHost      string
 
 	// Kubernetes
 	Namespaces     []string
@@ -93,9 +95,11 @@ func Load() (*Config, error) {
 		LLMMaxTokens:   getenvInt("LLM_MAX_TOKENS", 2048),
 
 		// API Keys
-		GroqAPIKey:    os.Getenv("GROQ_API_KEY"),
-		MistralAPIKey: os.Getenv("MISTRAL_API_KEY"),
-		OpenAIAPIKey:  os.Getenv("OPENAI_API_KEY"),
+		GroqAPIKey:      os.Getenv("GROQ_API_KEY"),
+		MistralAPIKey:   os.Getenv("MISTRAL_API_KEY"),
+		OpenAIAPIKey:    os.Getenv("OPENAI_API_KEY"),
+		AnthropicAPIKey: os.Getenv("ANTHROPIC_API_KEY"),
+		OllamaHost:      getenv("OLLAMA_HOST", "http://localhost:11434"),
 
 		// Kubernetes
 		Namespaces:     strings.Split(getenv("K8S_NAMESPACES", "default"), ","),
@@ -161,6 +165,16 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("MISTRAL_API_KEY is required when LLM_PROVIDER=mistral")
 		}
 		os.Setenv("MISTRAL_API_KEY", c.MistralAPIKey)
+	case "anthropic":
+		if c.AnthropicAPIKey == "" {
+			return fmt.Errorf("ANTHROPIC_API_KEY is required when LLM_PROVIDER=anthropic")
+		}
+		os.Setenv("ANTHROPIC_API_KEY", c.AnthropicAPIKey)
+	case "ollama":
+		if c.OllamaHost == "" {
+			return fmt.Errorf("OLLAMA_HOST is required when LLM_PROVIDER=ollama")
+		}
+		os.Setenv("OLLAMA_HOST", c.OllamaHost)
 	}
 	return nil
 }

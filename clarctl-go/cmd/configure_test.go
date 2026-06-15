@@ -80,4 +80,22 @@ func TestUpdateConfig(t *testing.T) {
 	if model != "openai/gpt-4o" {
 		t.Errorf("Expected openai/gpt-4o, got %s", model)
 	}
+
+	// Test 4: Anthropic provider
+	model, err = updateConfig(envPath, "anthropic", "test-anthropic-key")
+	if err != nil {
+		t.Fatalf("updateConfig failed on anthropic: %v", err)
+	}
+	if model != "anthropic/claude-3-5-sonnet-latest" {
+		t.Errorf("Expected anthropic/claude-3-5-sonnet-latest, got %s", model)
+	}
+
+	// Test 5: Ollama provider
+	model, err = updateConfig(envPath, "ollama", "http://localhost:11434")
+	if err != nil {
+		t.Fatalf("updateConfig failed on ollama: %v", err)
+	}
+	if model != "ollama/llama3.1" {
+		t.Errorf("Expected ollama/llama3.1, got %s", model)
+	}
 }

@@ -87,6 +87,36 @@ func TestConfig_Validate(t *testing.T) {
 			},
 			wantErr: false, // Currently returns nil for unknown
 		},
+		{
+			name: "anthropic with key",
+			cfg: &Config{
+				LLMProvider:     "anthropic",
+				AnthropicAPIKey: "sk-ant",
+			},
+			wantErr: false,
+		},
+		{
+			name: "anthropic without key",
+			cfg: &Config{
+				LLMProvider: "anthropic",
+			},
+			wantErr: true,
+		},
+		{
+			name: "ollama with host",
+			cfg: &Config{
+				LLMProvider: "ollama",
+				OllamaHost:  "http://localhost:11434",
+			},
+			wantErr: false,
+		},
+		{
+			name: "ollama without host",
+			cfg: &Config{
+				LLMProvider: "ollama",
+			},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

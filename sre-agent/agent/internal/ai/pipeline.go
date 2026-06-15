@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/tmc/langchaingo/llms"
+	"github.com/tmc/langchaingo/llms/anthropic"
+	"github.com/tmc/langchaingo/llms/ollama"
 	"github.com/tmc/langchaingo/llms/openai"
 
 	"github.com/Vaishnav88sk/claritty/sre-agent/agent/internal/config"
@@ -63,6 +65,20 @@ func buildLLM(cfg *config.Config) (llms.Model, error) {
 			openai.WithToken(cfg.MistralAPIKey),
 			openai.WithModel(model),
 		)
+	case "anthropic":
+		model = strings.TrimPrefix(model, "anthropic/")
+		return anthropic.New(
+			anthropic.WithToken(cfg.AnthropicAPIKey),
+			anthropic.WithModel(model),
+		)
+	case "ollama":
+		model = strings.TrimPrefix(model, "ollama/")
+		return ollama.New(
+			ollama.WithServerURL(cfg.OllamaHost),
+			ollama.WithModel(model),
+		)
+	case "mock":
+		return &MockLLM{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported LLM provider: %s", cfg.LLMProvider)
 	}
