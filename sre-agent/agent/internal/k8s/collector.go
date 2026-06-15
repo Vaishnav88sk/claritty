@@ -50,6 +50,11 @@ func New() (*Client, error) {
 	return &Client{cs: cs}, nil
 }
 
+// NewWithClient creates a K8s client with an existing interface, used for testing.
+func NewWithClient(cs kubernetes.Interface) *Client {
+	return &Client{cs: cs}
+}
+
 func buildConfig() (*rest.Config, error) {
 	// 1. In-cluster (running inside a pod — production)
 	if cfg, err := rest.InClusterConfig(); err == nil {
