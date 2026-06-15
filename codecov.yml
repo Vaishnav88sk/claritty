@@ -31,5 +31,5 @@ comment:
   # Explicitly tell Codecov never to hide the project table
   hide_project_coverage: false
   
-  # Update the existing comment instead of creating a new one on every commit
-  behavior: default
+  # Force Codecov to post a BRAND NEW comment instead of updating the old one
+  behavior: new
