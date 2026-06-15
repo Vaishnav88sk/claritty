@@ -36,6 +36,11 @@ func New(kubeconfigPath string) (*Client, error) {
 	return &Client{cs: cs, cfg: cfg}, nil
 }
 
+// NewWithClient creates a K8s client with an existing interface, used for testing.
+func NewWithClient(cs kubernetes.Interface) *Client {
+	return &Client{cs: cs}
+}
+
 func buildConfig(overridePath string) (*rest.Config, error) {
 	if overridePath != "" {
 		return clientcmd.BuildConfigFromFlags("", overridePath)
