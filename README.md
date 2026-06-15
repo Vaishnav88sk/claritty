@@ -14,6 +14,8 @@
 Claritty is an **open-source, cloud-native AI Site Reliability Engineering platform** for Kubernetes clusters.
 It combines real-time cluster telemetry with a **6-stage AI agent pipeline** to automatically detect, diagnose, and remediate incidents, reducing MTTR from hours to minutes.
 
+Featured in **[AI SRE Watchlist.](https://www.linkedin.com/posts/ai-sre-watchlist_claritty-by-vaishnav-kale-is-working-on-helping-activity-7468866785853972481-B0n7?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAD-VvywBFeSzCn04yq4Sxx2vE1sMXyE7XqI)** 
+
 ---
 
 ## 🚀 Installation (For End Users)
@@ -25,7 +27,7 @@ Download the pre-compiled binary to your local machine to diagnose your clusters
 
 ```bash
 # 1. Download the latest binary (Linux/macOS)
-curl -sL https://raw.githubusercontent.com/Vaishnav88sk/claritty/clarctl-go/clarctl-go/install.sh | bash
+curl -sL https://raw.githubusercontent.com/Vaishnav88sk/claritty/master/clarctl-go/install.sh | bash
 ```
 ```bash
 # 2. Run help
