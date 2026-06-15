@@ -19,9 +19,8 @@ var configureCmd = &cobra.Command{
 	Long:  "Launch an interactive wizard to configure your LLM provider and API keys.",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		var provider string
-		var apiKey string
 
-		form := huh.NewForm(
+		form1 := huh.NewForm(
 			huh.NewGroup(
 				huh.NewSelect[string]().
 					Title("Choose your LLM Provider").
@@ -29,28 +28,50 @@ var configureCmd = &cobra.Command{
 						huh.NewOption("Groq (Recommended)", "groq"),
 						huh.NewOption("Mistral", "mistral"),
 						huh.NewOption("OpenAI", "openai"),
+						huh.NewOption("Anthropic", "anthropic"),
+						huh.NewOption("Ollama (Local)", "ollama"),
 					).
 					Value(&provider),
+			),
+		)
 
+		if err := form1.Run(); err != nil {
+			return fmt.Errorf("configuration cancelled: %w", err)
+		}
+
+		var apiKey string
+		inputTitle := "Enter your API Key"
+		inputDesc := "Your key will be securely saved and not displayed."
+		echoMode := huh.EchoModePassword
+
+		if provider == "ollama" {
+			inputTitle = "Enter Ollama Host URL"
+			inputDesc = "Example: http://localhost:11434"
+			echoMode = huh.EchoModeNormal
+			apiKey = "http://localhost:11434" // Default value
+		}
+
+		form2 := huh.NewForm(
+			huh.NewGroup(
 				huh.NewInput().
-					Title("Enter your API Key").
-					Description("Your key will be securely saved and not displayed.").
-					EchoMode(huh.EchoModePassword).
+					Title(inputTitle).
+					Description(inputDesc).
+					EchoMode(echoMode).
 					Value(&apiKey).
 					Validate(func(s string) error {
 						s = strings.TrimSpace(s)
 						if s == "" {
-							return fmt.Errorf("API key cannot be empty")
+							return fmt.Errorf("input cannot be empty")
 						}
 						if strings.Contains(s, "\n") || strings.Contains(s, "\r") {
-							return fmt.Errorf("API key cannot contain newlines")
+							return fmt.Errorf("input cannot contain newlines")
 						}
 						return nil
 					}),
 			),
 		)
 
-		if err := form.Run(); err != nil {
+		if err := form2.Run(); err != nil {
 			return fmt.Errorf("configuration cancelled: %w", err)
 		}
 
@@ -82,6 +103,12 @@ func updateConfig(envPath, provider, apiKey string) (string, error) {
 	case "openai":
 		envKey = "OPENAI_API_KEY"
 		defaultModel = "openai/gpt-4o"
+	case "anthropic":
+		envKey = "ANTHROPIC_API_KEY"
+		defaultModel = "anthropic/claude-3-5-sonnet-latest"
+	case "ollama":
+		envKey = "OLLAMA_HOST"
+		defaultModel = "ollama/llama3.1"
 	}
 
 	clarittyDir := filepath.Dir(envPath)
