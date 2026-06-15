@@ -45,3 +45,34 @@ func TestPrintBanner(t *testing.T) {
 		t.Errorf("Expected banner to contain 'AI-SRE Engine', got:\n%s", output)
 	}
 }
+
+func TestPrintConfigSuccess(t *testing.T) {
+	// Redirect stdout to capture the output
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	PrintConfigSuccess("test-provider", "test-model", "/test/path/.env")
+
+	// Restore stdout
+	w.Close()
+	os.Stdout = oldStdout
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	// Validate the rendered output contract
+	if !strings.Contains(output, "Successfully configured Claritty!") {
+		t.Errorf("Expected output to contain success header, got:\n%s", output)
+	}
+	if !strings.Contains(output, "Provider:") || !strings.Contains(output, "test-provider") {
+		t.Errorf("Expected output to contain provider label and value, got:\n%s", output)
+	}
+	if !strings.Contains(output, "Model:") || !strings.Contains(output, "test-model") {
+		t.Errorf("Expected output to contain model label and value, got:\n%s", output)
+	}
+	if !strings.Contains(output, "Path:") || !strings.Contains(output, "/test/path/.env") {
+		t.Errorf("Expected output to contain path label and value, got:\n%s", output)
+	}
+}
