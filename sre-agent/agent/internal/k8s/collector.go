@@ -164,6 +164,9 @@ func (c *Client) CollectEvents(ctx context.Context, namespace string) string {
 	}
 	var sb strings.Builder
 	for _, ev := range evList.Items {
+		if ev.Type != "Warning" {
+			continue // Fallback filter for tests (fake clientset ignores FieldSelector)
+		}
 		msg := ev.Message
 		if len(msg) > 200 {
 			msg = msg[:200]

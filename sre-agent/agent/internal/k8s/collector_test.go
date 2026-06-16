@@ -120,8 +120,18 @@ func TestCollectSnapshot_Success(t *testing.T) {
 func TestCollectEvents_WarningFilter(t *testing.T) {
 	ctx := context.Background()
 
-	// The client-go fake clientset does not execute FieldSelectors natively.
-	// We just inject a Warning event and ensure it gets formatted correctly by CollectEvents.
+	normalEvent := &corev1.Event{
+		ObjectMeta: metav1.ObjectMeta{Name: "event-1", Namespace: "default"},
+		Type:       "Normal",
+		Reason:     "Scheduled",
+		Message:    "Successfully assigned default/pod to node",
+		InvolvedObject: corev1.ObjectReference{
+			Kind:      "Pod",
+			Namespace: "default",
+			Name:      "test-pod",
+		},
+	}
+
 	warningEvent := &corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{Name: "event-2", Namespace: "default"},
 		Type:       "Warning",
@@ -134,13 +144,19 @@ func TestCollectEvents_WarningFilter(t *testing.T) {
 		},
 	}
 
-	cs := fake.NewSimpleClientset(warningEvent)
+	cs := fake.NewSimpleClientset(normalEvent, warningEvent)
 	c := NewWithClient(cs)
 
 	eventsString := c.CollectEvents(ctx, "default")
 
+	// Validate that the Warning event IS present
 	if !strings.Contains(eventsString, "FailedScheduling") || !strings.Contains(eventsString, "0/1 nodes are available") {
 		t.Errorf("Expected output to contain Warning events, got: %s", eventsString)
+	}
+
+	// Validate that the Normal event is EXCLUDED
+	if strings.Contains(eventsString, "Scheduled") || strings.Contains(eventsString, "Successfully assigned") {
+		t.Errorf("Expected output NOT to contain Normal events, got: %s", eventsString)
 	}
 }
 
