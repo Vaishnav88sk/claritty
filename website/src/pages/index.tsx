@@ -57,8 +57,8 @@ function HomepageHeader() {
         </div>
 
         {/* Visual Demo (Terminal Mockup) */}
-        <div className="animate-fade-in-up delay-3 animate-float" style={{ marginTop: '5rem', display: 'flex', justifyContent: 'center' }}>
-          <div style={{
+        <div className="animate-fade-in-up delay-3" style={{ marginTop: '5rem', display: 'flex', justifyContent: 'center' }}>
+          <div className="animate-float" style={{
             maxWidth: '900px',
             width: '100%',
             borderRadius: '12px',
