@@ -1,4 +1,4 @@
-import type {ReactNode} from 'react';
+import React, { useState, useEffect, type ReactNode } from 'react';
 import clsx from 'clsx';
 import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
@@ -6,12 +6,60 @@ import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
 import Head from '@docusaurus/Head';
 
+function LatestReleaseBadge() {
+  const [version, setVersion] = useState<string | null>(null);
+  const [url, setUrl] = useState<string>('https://github.com/Vaishnav88sk/claritty/releases');
+
+  useEffect(() => {
+    fetch('https://api.github.com/repos/Vaishnav88sk/claritty/releases/latest')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.tag_name) {
+          setVersion(data.tag_name);
+          setUrl(data.html_url);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
+  if (!version) return null;
+
+  return (
+    <div className="animate-fade-in-up" style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'center' }}>
+      <a href={url} target="_blank" rel="noopener noreferrer" className="animate-jiggle" style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        padding: '0.4rem 1rem',
+        borderRadius: '50px',
+        background: 'rgba(139, 92, 246, 0.1)',
+        border: '1px solid rgba(139, 92, 246, 0.2)',
+        color: 'var(--ifm-color-primary)',
+        fontSize: '0.9rem',
+        fontWeight: 600,
+        textDecoration: 'none',
+        transition: 'all 0.2s ease',
+      }}
+      onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(139, 92, 246, 0.2)'; }}
+      onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)'; }}
+      onFocus={(e) => { e.currentTarget.style.background = 'rgba(139, 92, 246, 0.2)'; }}
+      onBlur={(e) => { e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)'; }}
+      >
+        <span style={{ marginRight: '8px' }}>🚀</span>
+        Claritty {version} is now available!
+      </a>
+    </div>
+  );
+}
+
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
   return (
     <header className="hero" style={{ minHeight: '85vh', display: 'flex', alignItems: 'center', background: 'transparent', padding: '6rem 0' }}>
       <div className="container" style={{ textAlign: 'center' }}>
         
+        {/* Dynamic Latest Release Badge */}
+        <LatestReleaseBadge />
+
         {/* Animated Headline */}
         <Heading as="h1" className="hero__title animate-fade-in-up" style={{ 
           fontSize: 'clamp(3rem, 8vw, 5rem)', 

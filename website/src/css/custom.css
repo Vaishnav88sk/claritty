@@ -110,4 +110,17 @@
 .animate-float {
   animation: float 6s ease-in-out infinite;
 }
-/* Trigger CI */
+
+/* Horizontal jiggle for interactive elements */
+@keyframes jiggle {
+  0% { transform: translateX(0); }
+  10% { transform: translateX(-4px); }
+  20% { transform: translateX(4px); }
+  30% { transform: translateX(-2px); }
+  40% { transform: translateX(2px); }
+  50%, 100% { transform: translateX(0); }
+}
+
+.animate-jiggle {
+  animation: jiggle 4s ease-in-out infinite;
+}
