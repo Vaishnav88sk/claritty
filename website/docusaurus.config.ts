@@ -51,7 +51,7 @@ const config: Config = {
       title: 'Claritty',
       logo: {
         alt: 'Claritty Logo',
-        src: 'img/logo.svg', // We can replace this with the real logo later
+        src: 'img/claritty_logo.png', // Replaced with the real logo
       },
       items: [
         {
