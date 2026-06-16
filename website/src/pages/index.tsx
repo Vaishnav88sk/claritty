@@ -4,6 +4,7 @@ import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import Layout from '@theme/Layout';
 import Heading from '@theme/Heading';
+import Head from '@docusaurus/Head';
 
 function HomepageHeader() {
   const {siteConfig} = useDocusaurusContext();
@@ -124,8 +125,11 @@ export default function Home(): ReactNode {
   const {siteConfig} = useDocusaurusContext();
   return (
     <Layout
-      title={`${siteConfig.title} | AI-SRE Platform`}
       description="Decentralized AI-SRE observability platform for Kubernetes. Run root cause analysis completely locally with open source LLMs.">
+      <Head>
+        <title>Claritty | AI-SRE Platform for Kubernetes</title>
+        <meta property="og:title" content="Claritty | AI-SRE Platform for Kubernetes" />
+      </Head>
       <HomepageHeader />
       <main>
         <FeatureGrid />
