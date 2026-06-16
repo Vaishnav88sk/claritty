@@ -1,0 +1,68 @@
+@import 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap';
+
+/**
+ * Premium Claritty Aesthetic System
+ */
+
+:root {
+  /* LIGHT MODE (Clean, Crisp, Modern) */
+  --ifm-color-primary: #8B5CF6; /* Rich Violet Primary */
+  --ifm-color-primary-dark: #7C3AED;
+  --ifm-color-primary-darker: #6D28D9;
+  --ifm-color-primary-darkest: #5B21B6;
+  --ifm-color-primary-light: #A78BFA;
+  --ifm-color-primary-lighter: #C4B5FD;
+  --ifm-color-primary-lightest: #EDE9FE;
+
+  --ifm-background-color: #FFFFFF;
+  --ifm-background-surface-color: #F9FAFB;
+  --ifm-font-color-base: #111827; /* Dark Gray text for light mode */
+
+  /* Typography */
+  --ifm-font-family-base: 'inter', system-ui, -apple-system, segoe ui, roboto, ubuntu, cantarell, noto sans, sans-serif;
+  --ifm-heading-font-family: 'inter', system-ui, -apple-system, segoe ui, roboto, ubuntu, cantarell, noto sans, sans-serif;
+  --ifm-code-font-size: 95%;
+
+  --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.05);
+}
+
+[data-theme='dark'] {
+  /* DARK MODE (Deep OLED Black, Premium) */
+  --ifm-color-primary: #A78BFA; /* Lighter Violet for dark mode contrast */
+  --ifm-color-primary-dark: #8B5CF6;
+  --ifm-color-primary-darker: #7C3AED;
+  --ifm-color-primary-darkest: #6D28D9;
+  --ifm-color-primary-light: #C4B5FD;
+  --ifm-color-primary-lighter: #DDD6FE;
+  --ifm-color-primary-lightest: #EDE9FE;
+
+  /* Deep OLED-style black for a rich feel */
+  --ifm-background-color: #09090B;
+  --ifm-background-surface-color: #18181B;
+  --ifm-font-color-base: #FAFAFA; /* Crisp white text for dark mode */
+
+  --docusaurus-highlighted-code-line-bg: rgba(255, 255, 255, 0.1);
+}
+
+/* Glassmorphism overrides for navbar */
+.navbar {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background-color: rgba(255, 255, 255, 0.8) !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+[data-theme='dark'] .navbar {
+  background-color: rgba(9, 9, 11, 0.8) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Mobile Hero Responsiveness */
+@media (max-width: 996px) {
+  .hero__title {
+    font-size: 2.5rem !important;
+  }
+  .hero__subtitle {
+    font-size: 1.2rem !important;
+  }
+}
