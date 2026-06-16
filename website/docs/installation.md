@@ -68,5 +68,8 @@ kubectl apply -f https://raw.githubusercontent.com/Vaishnav88sk/claritty/master/
 kubectl apply -f https://raw.githubusercontent.com/Vaishnav88sk/claritty/master/sre-agent/deploy/agent-deployment.yaml
 ```
 
-> [!WARNING]
-> Before applying `agent-configmap.yaml`, ensure you replace the default placeholders with your specific Hub Server IP and a unique `Cluster Name` to identify it on the dashboard.
+:::warning
+
+Before applying `agent-configmap.yaml`, ensure you replace the default placeholders with your specific Hub Server IP and a unique `Cluster Name` to identify it on the dashboard.
+
+:::

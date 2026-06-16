@@ -40,5 +40,8 @@ Each stage represents a specialized, autonomous agent:
 6. ⚡ **Commander Agent**  
    Synthesizes the findings from all previous agents to generate a human-readable RCA and proposes exact `kubectl` remediation commands.
 
-> [!IMPORTANT]
-> **Safety Guarantee:** The Commander Agent validates all proposed commands against a strict, predefined allowlist. Destructive actions are flagged and heavily restricted.
+:::info
+
+**Safety Guarantee:** The Commander Agent validates all proposed commands against a strict, predefined allowlist. Destructive actions are flagged and heavily restricted.
+
+:::

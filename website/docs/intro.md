@@ -8,8 +8,11 @@ sidebar_position: 1
 
 It combines real-time cluster telemetry with a powerful **6-stage AI agent pipeline** to automatically detect, diagnose, and remediate incidents, shrinking MTTR (Mean Time to Resolution) from hours down to minutes.
 
-> [!TIP]
-> Claritty is designed with **Zero-Trust** in mind. By leveraging local LLMs (like Ollama), your sensitive cluster telemetry and logs never leave your infrastructure.
+:::tip
+
+Claritty is designed with **Zero-Trust** in mind. By leveraging local LLMs (like Ollama), your sensitive cluster telemetry and logs never leave your infrastructure.
+
+:::
 
 ## The Two Modes of Claritty
 

@@ -39,5 +39,8 @@ For every command proposed by the AI, the CLI will enter interactive mode:
 - `dry` (Dry Run): Simulates the command using the Kubernetes API `--dry-run=client` flag to ensure it's structurally valid without making actual mutations.
 - `n` (No): Rejects the command and halts the remediation sequence.
 
-> [!WARNING]
-> While Claritty runs commands through a strict allowlist to prevent destructive actions, you should always review proposed commands before typing `y`. Use `dry` if you are unsure of a command's side-effects.
+:::warning
+
+While Claritty runs commands through a strict allowlist to prevent destructive actions, you should always review proposed commands before typing `y`. Use `dry` if you are unsure of a command's side-effects.
+
+:::
