@@ -8,6 +8,10 @@ on:
       - 'website/**'
   workflow_dispatch:
 
+concurrency:
+  group: github-pages-deployment
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
