@@ -87,6 +87,10 @@ const config: Config = {
               label: 'GitHub Discussions',
               href: 'https://github.com/Vaishnav88sk/claritty/discussions',
             },
+            {
+              label: 'Contact via Email',
+              href: 'mailto:vaishnavsk8804@gmail.com',
+            },
           ],
         },
         {
