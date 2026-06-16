@@ -5,6 +5,7 @@
 [![Go Version](https://img.shields.io/github/go-mod/go-version/Vaishnav88sk/claritty?filename=clarctl-go%2Fgo.mod&label=Go)](https://golang.org)
 [![Latest Release](https://img.shields.io/github/v/release/Vaishnav88sk/claritty?color=blue&label=Release)](https://github.com/Vaishnav88sk/claritty/releases)
 [![CI Status](https://img.shields.io/github/actions/workflow/status/Vaishnav88sk/claritty/ci.yaml?branch=master&label=CI)](https://github.com/Vaishnav88sk/claritty/actions)
+[![Documentation](https://img.shields.io/badge/docs-live-brightgreen.svg)](https://vaishnav88sk.github.io/claritty/)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/Vaishnav88sk/claritty/pulls)
 <!-- [![GitHub stars](https://img.shields.io/github/stars/Vaishnav88sk/claritty?style=social)](https://github.com/Vaishnav88sk/claritty/stargazers)
 [![GitHub forks](https://img.shields.io/github/forks/Vaishnav88sk/claritty?style=social)](https://github.com/Vaishnav88sk/claritty/network/members) -->
@@ -15,6 +16,8 @@ Claritty is an **open-source, cloud-native AI Site Reliability Engineering platf
 It combines real-time cluster telemetry with a **6-stage AI agent pipeline** to automatically detect, diagnose, and remediate incidents, reducing MTTR from hours to minutes.
 
 Featured in **[AI SRE Watchlist.](https://www.linkedin.com/posts/ai-sre-watchlist_claritty-by-vaishnav-kale-is-working-on-helping-activity-7468866785853972481-B0n7?utm_source=social_share_send&utm_medium=member_desktop_web&rcm=ACoAAD-VvywBFeSzCn04yq4Sxx2vE1sMXyE7XqI)** 
+
+🌐 **[Visit the official website for full documentation and guides.](https://vaishnav88sk.github.io/claritty/)**
 
 ---
 
@@ -40,7 +43,7 @@ clarctl scan
 ```
 
 ### Option 2: Deploy the SRE Agent & Hub (In-Cluster)
-Deploy the centralized dashboard and the agent into your clusters for continuous monitoring. For detailed steps, see [INSTALLATION.md](INSTALLATION.md).
+Deploy the centralized dashboard and the agent into your clusters for continuous monitoring. For detailed steps, see the **[Official Documentation](https://vaishnav88sk.github.io/claritty/docs/installation)**.
 
 **Start the Hub Server (Dashboard)**
 ```bash
