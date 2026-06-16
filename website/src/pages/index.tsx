@@ -41,8 +41,10 @@ function HomepageHeader() {
             className="button button--primary button--lg"
             style={{ borderRadius: '50px', padding: '0.8rem 2rem', fontWeight: 600, boxShadow: '0 10px 25px -5px rgba(139, 92, 246, 0.4)', transition: 'transform 0.2s ease, box-shadow 0.2s ease' }}
             to="/docs/intro"
-            onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 15px 30px -5px rgba(139, 92, 246, 0.6)'; }}
-            onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(139, 92, 246, 0.4)'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 15px 30px -5px rgba(139, 92, 246, 0.6)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(139, 92, 246, 0.4)'; }}
+            onFocus={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 15px 30px -5px rgba(139, 92, 246, 0.6)'; }}
+            onBlur={(e) => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = '0 10px 25px -5px rgba(139, 92, 246, 0.4)'; }}
             >
             Get Started
           </Link>
@@ -50,8 +52,10 @@ function HomepageHeader() {
             className="button button--secondary button--lg"
             style={{ borderRadius: '50px', padding: '0.8rem 2rem', fontWeight: 600, transition: 'transform 0.2s ease' }}
             href="https://github.com/Vaishnav88sk/claritty"
-            onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
-            onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
+            onFocus={(e) => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
+            onBlur={(e) => { e.currentTarget.style.transform = 'translateY(0)'; }}
             >
             View on GitHub
           </Link>
@@ -108,8 +112,10 @@ function FeatureGrid() {
               boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
               transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
             }}
-            onMouseOver={(e) => { e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)'; e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(139, 92, 246, 0.15), 0 0 0 1px rgba(139, 92, 246, 0.3)'; }}
-            onMouseOut={(e) => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'; }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)'; e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(139, 92, 246, 0.15), 0 0 0 1px rgba(139, 92, 246, 0.3)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'; }}
+            onFocus={(e) => { e.currentTarget.style.transform = 'translateY(-8px) scale(1.02)'; e.currentTarget.style.boxShadow = '0 20px 25px -5px rgba(139, 92, 246, 0.15), 0 0 0 1px rgba(139, 92, 246, 0.3)'; }}
+            onBlur={(e) => { e.currentTarget.style.transform = 'translateY(0) scale(1)'; e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'; }}
             >
               <Heading as="h3" style={{ fontSize: '1.4rem', color: 'var(--ifm-color-primary)', marginBottom: '1rem' }}>{f.title}</Heading>
               <p style={{ opacity: 0.8, lineHeight: '1.6', margin: 0 }}>{f.desc}</p>

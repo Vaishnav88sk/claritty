@@ -68,7 +68,7 @@
 }
 
 /* Animations */
-@keyframes fadeInUp {
+@keyframes fade-in-up {
   from {
     opacity: 0;
     transform: translateY(30px);
@@ -81,7 +81,7 @@
 
 .animate-fade-in-up {
   opacity: 0;
-  animation: fadeInUp 0.8s ease-out forwards;
+  animation: fade-in-up 0.8s ease-out forwards;
 }
 
 .delay-1 {
