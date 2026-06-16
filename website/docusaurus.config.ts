@@ -32,7 +32,7 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/Vaishnav88sk/claritty/tree/master/website/',
+          editUrl: 'https://github.com/Vaishnav88sk/claritty/issues/',
         },
         blog: false, // Disable the blog plugin
         theme: {
