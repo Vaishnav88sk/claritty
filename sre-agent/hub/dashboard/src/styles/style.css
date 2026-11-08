@@ -24,15 +24,19 @@
 
 /* ─── Reset & Base ─────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; }
+html, body, #app { height: 100%; }
 body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
-  display: flex;
   min-height: 100vh;
   font-size: 14px;
   line-height: 1.6;
+}
+#app {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
 }
 a { color: inherit; text-decoration: none; }
 button { cursor: pointer; font-family: var(--font); }

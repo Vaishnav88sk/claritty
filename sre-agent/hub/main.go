@@ -53,8 +53,12 @@ func main() {
 	apiHandler := api.New(store, slackClient, hubBaseURL, cfg.HubAPIKey)
 	apiHandler.RegisterRoutes(mux)
 
-	// Static dashboard — serve from embedded dashboard/ directory
-	fs := http.FileServer(http.Dir("dashboard"))
+	// Static dashboard — serve from dashboard/dist directory if built, otherwise dashboard/
+	dashboardDir := "dashboard"
+	if fi, err := os.Stat("dashboard/dist"); err == nil && fi.IsDir() {
+		dashboardDir = "dashboard/dist"
+	}
+	fs := http.FileServer(http.Dir(dashboardDir))
 	mux.Handle("/", fs)
 
 	// ── Server ────────────────────────────────────────────────────────────────

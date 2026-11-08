@@ -73,7 +73,7 @@ Cluster C (qa)   ──► claritty-agent ─┘         │
 
 - **Agent (`sre-agent/agent`)**: Runs as a 1-replica K8s Deployment. Uses `InClusterConfig` to monitor pod/node health. Consumes ~50m CPU and ~64Mi RAM.
 - **Hub (`sre-agent/hub`)**: Central Go REST API server. Receives incident payloads from agents, persists them in PostgreSQL, triggers Slack alerts, and serves the static SPA dashboard.
-- **Dashboard (`sre-agent/hub/dashboard`)**: Vanilla JS Single Page Application. Features multi-cluster health cards, namespace filtering, MTTR analytics, and an interactive RCA modal with copy-able remediation commands.
+- **Dashboard (`sre-agent/hub/dashboard`)**: Svelte Single Page Application. Features multi-cluster health cards, namespace filtering, MTTR analytics, and an interactive RCA modal with copy-able remediation commands.
 
 ---
 

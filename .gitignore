@@ -4,6 +4,9 @@ sre-agent/agent/agent
 sre-agent/hub/hub
 claritty-agent-client/claritty-agent-client
 
+# Dependencies
+node_modules/
+
 # OS specific
 .DS_Store
 .DS_Store?
