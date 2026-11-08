@@ -113,12 +113,26 @@ func (p *Pipeline) RunScan(ctx context.Context) (*incident.Report, error) {
 func (p *Pipeline) runPipeline(ctx context.Context) (*incident.Report, error) {
 	ec := incident.NewEvidenceCollector()
 	timeline := incident.NewTimelineEngine()
+	changeEngine := incident.NewChangeEngine(60*time.Minute, time.Now().UTC())
 
 	fmt.Println("[agent] Stage 1/6: Triage — collecting cluster state...")
 	triage, err := p.collectTriage(ctx, ec, timeline)
 	if err != nil {
 		return nil, fmt.Errorf("triage: %w", err)
 	}
+
+	// Detect recent changes for "What Changed?" investigation (Issue #51)
+	if p.k8sCli != nil {
+		recentChanges, err := p.k8sCli.DetectRecentChanges(ctx, p.cfg.Namespaces, 60*time.Minute, time.Now().UTC())
+		if err == nil {
+			for _, chg := range recentChanges {
+				changeEngine.AddChange(chg)
+			}
+		}
+	}
+	changeEngine.Correlate(nil, p.cfg.Namespaces)
+	changeEngine.IngestEvidence(ec, 0.50)
+	changeEngine.IngestTimeline(timeline, 0.50)
 
 	fmt.Println("[agent] Stage 2/6: Metrics — analyzing resource usage...")
 	metricsSummary, err := p.runAgent(ctx, buildMetricsPrompt(triage))
@@ -133,7 +147,7 @@ func (p *Pipeline) runPipeline(ctx context.Context) (*incident.Report, error) {
 	}
 
 	fmt.Println("[agent] Stage 4/6: Infra — diagnosing constraints...")
-	infraSummary, err := p.runAgent(ctx, buildInfraPrompt(truncate(triage, 1200), truncate(metricsSummary, 800), truncate(logSummary, 800)))
+	infraSummary, err := p.runAgent(ctx, buildInfraPrompt(truncate(triage, 1200), truncate(metricsSummary, 800), truncate(logSummary, 800), changeEngine.FormatForAI(10)))
 	if err != nil {
 		return nil, fmt.Errorf("infra: %w", err)
 	}
@@ -153,12 +167,13 @@ func (p *Pipeline) runPipeline(ctx context.Context) (*incident.Report, error) {
 		truncate(runbookSummary, 800),
 		ec,
 		timeline,
+		changeEngine,
 	))
 	if err != nil {
 		return nil, fmt.Errorf("commander: %w", err)
 	}
 
-	return parseReport(rawJSON, p.cfg.ClusterName, fullModelName(p.cfg), ec, timeline)
+	return parseReport(rawJSON, p.cfg.ClusterName, fullModelName(p.cfg), ec, timeline, changeEngine)
 }
 
 // collectTriage gathers cluster data and builds the triage prompt input.
@@ -308,19 +323,22 @@ Output a concise summary (max 200 words) of:
 3. Which specific pods are generating errors`, triage, metrics)
 }
 
-func buildInfraPrompt(triage, metrics, logs string) string {
+func buildInfraPrompt(triage, metrics, logs, changes string) string {
 	return fmt.Sprintf(`You are a Kubernetes Infrastructure Diagnostician.
-Diagnose if infrastructure constraints are causing the incident.
+Diagnose if infrastructure constraints or recent changes are causing the incident.
 
 TRIAGE: %s
 METRICS: %s
 LOGS: %s
+RECENT CHANGES ("WHAT CHANGED?"):
+%s
 
 Analyze (max 200 words):
 1. Are resource quotas being hit?
 2. Are there scheduling constraints (taints, affinity)?
 3. Are nodes healthy?
-4. Is this infra-caused or application-caused?`, triage, metrics, logs)
+4. Did a recent deployment, config change, or container image update contribute? Note: Correlation does NOT imply causation without error evidence.
+5. Is this infra-caused or application-caused?`, triage, metrics, logs, changes)
 }
 
 func buildRunbookPrompt(triage, metrics, logs, infra string) string {
@@ -345,7 +363,7 @@ CRITICAL RULES:
 Output a structured plan with exact kubectl commands.`, triage, metrics, logs, infra)
 }
 
-func buildCommanderPrompt(triage, metrics, logs, infra, runbook string, ec *incident.EvidenceCollector, timeline *incident.TimelineEngine) string {
+func buildCommanderPrompt(triage, metrics, logs, infra, runbook string, ec *incident.EvidenceCollector, timeline *incident.TimelineEngine, changeEngine *incident.ChangeEngine) string {
 	evidenceText := "(No telemetry evidence recorded)"
 	if ec != nil {
 		evidenceText = ec.FormatForPrompt()
@@ -354,6 +372,11 @@ func buildCommanderPrompt(triage, metrics, logs, infra, runbook string, ec *inci
 	timelineText := "(No chronological timeline events recorded)"
 	if timeline != nil {
 		timelineText = timeline.FormatForAI(25)
+	}
+
+	changesText := "(No recent changes detected in lookback window)"
+	if changeEngine != nil {
+		changesText = changeEngine.FormatForAI(15)
 	}
 
 	return fmt.Sprintf(`You are the Incident Commander. Synthesize all findings into a final report.
@@ -365,11 +388,18 @@ INCIDENT TIMELINE:
 COLLECTED EVIDENCE:
 %s
 
+RECENT CHANGES ("WHAT CHANGED?"):
+%s
+
 TRIAGE: %s
 METRICS: %s
 LOGS: %s
 INFRA: %s
 RUNBOOK: %s
+
+CRITICAL RULES FOR "WHAT CHANGED?" INVESTIGATION:
+1. Check the RECENT CHANGES ("WHAT CHANGED?") occurring before the incident.
+2. CORRELATION IS NOT CAUSATION: Only conclude a change caused the issue if logs/metrics confirm causality. Otherwise list as a hypothesis.
 
 CRITICAL RULES FOR EVIDENCE-BACKED ROOT CAUSE ANALYSIS (RCA):
 1. Every conclusion in "conclusions" MUST be backed by specific evidence ID(s) from COLLECTED EVIDENCE (e.g. ["E1", "E2"]).
@@ -423,7 +453,7 @@ Output EXACTLY this JSON:
 }
 
 If cluster is healthy, set has_issue=false and severity=SEV4.`,
-		truncate(timelineText, 2500), truncate(evidenceText, 2500), triage, metrics, logs, infra, runbook)
+		truncate(timelineText, 2500), truncate(evidenceText, 2500), truncate(changesText, 1500), triage, metrics, logs, infra, runbook)
 }
 
 // ─── Parser ───────────────────────────────────────────────────────────────────
@@ -462,7 +492,7 @@ type agentOutput struct {
 	RunbookUsed string `json:"runbook_used"`
 }
 
-func parseReport(raw, clusterName, modelName string, ec *incident.EvidenceCollector, timeline *incident.TimelineEngine) (*incident.Report, error) {
+func parseReport(raw, clusterName, modelName string, ec *incident.EvidenceCollector, timeline *incident.TimelineEngine, changeEngine *incident.ChangeEngine) (*incident.Report, error) {
 	cleaned := stripMarkdownFences(raw)
 	match := jsonBlockRe.FindString(cleaned)
 	if match == "" {
@@ -578,6 +608,10 @@ func parseReport(raw, clusterName, modelName string, ec *incident.EvidenceCollec
 
 	if timeline != nil {
 		r.Timeline = timeline.Events()
+	}
+
+	if changeEngine != nil {
+		r.Changes = changeEngine.All()
 	}
 
 	if r.RootCause == "" && len(r.Conclusions) > 0 {

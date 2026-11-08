@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -242,4 +243,115 @@ func computeHealthScore(snap *incident.ClusterSnapshot) float64 {
 		score = 0
 	}
 	return score
+}
+
+// DetectRecentChanges scans for deployments, configmaps, services, and events within lookback window.
+func (c *Client) DetectRecentChanges(ctx context.Context, namespaces []string, window time.Duration, refTime time.Time) ([]incident.ChangeRecord, error) {
+	if window <= 0 {
+		window = 60 * time.Minute
+	}
+	if refTime.IsZero() {
+		refTime = time.Now().UTC()
+	}
+	windowStart := refTime.Add(-window)
+	windowEnd := refTime.Add(5 * time.Minute)
+
+	var out []incident.ChangeRecord
+	seen := make(map[string]bool)
+
+	nsList := namespaces
+	if len(nsList) == 0 {
+		nsList = []string{metav1.NamespaceAll}
+	}
+
+	for _, ns := range nsList {
+		deps, err := c.cs.AppsV1().Deployments(ns).List(ctx, metav1.ListOptions{})
+		if err == nil {
+			for _, dep := range deps.Items {
+				rev := dep.Annotations["deployment.kubernetes.io/revision"]
+				gitCommit := dep.Annotations["git.commit"]
+				if gitCommit == "" {
+					gitCommit = dep.Annotations["git-commit"]
+				}
+				if gitCommit == "" {
+					gitCommit = dep.Annotations["app.kubernetes.io/version"]
+				}
+				var img string
+				if len(dep.Spec.Template.Spec.Containers) > 0 {
+					img = dep.Spec.Template.Spec.Containers[0].Image
+				}
+
+				for _, cond := range dep.Status.Conditions {
+					t := cond.LastUpdateTime.Time
+					if !t.IsZero() && !t.Before(windowStart) && !t.After(windowEnd) {
+						key := fmt.Sprintf("dep:%s:%s", dep.Namespace, dep.Name)
+						if !seen[key] {
+							seen[key] = true
+							summary := fmt.Sprintf("%s deployed", dep.Name)
+							if img != "" {
+								summary = fmt.Sprintf("%s %s deployed", dep.Name, img)
+							}
+							if rev != "" {
+								summary += fmt.Sprintf(" (rev %s)", rev)
+							}
+							out = append(out, incident.ChangeRecord{
+								Timestamp: t,
+								Resource:  fmt.Sprintf("deployment/%s/%s", dep.Namespace, dep.Name),
+								Namespace: dep.Namespace,
+								Category:  incident.ChangeCategoryDeployment,
+								Summary:   summary,
+								Details: map[string]interface{}{
+									"revision":   rev,
+									"image":      img,
+									"git_commit": gitCommit,
+								},
+							})
+						}
+					}
+				}
+			}
+		}
+
+		cms, err := c.cs.CoreV1().ConfigMaps(ns).List(ctx, metav1.ListOptions{})
+		if err == nil {
+			for _, cm := range cms.Items {
+				t := cm.CreationTimestamp.Time
+				if !t.IsZero() && !t.Before(windowStart) && !t.After(windowEnd) {
+					key := fmt.Sprintf("cm:%s:%s", cm.Namespace, cm.Name)
+					if !seen[key] {
+						seen[key] = true
+						out = append(out, incident.ChangeRecord{
+							Timestamp: t,
+							Resource:  fmt.Sprintf("configmap/%s/%s", cm.Namespace, cm.Name),
+							Namespace: cm.Namespace,
+							Category:  incident.ChangeCategoryConfig,
+							Summary:   fmt.Sprintf("ConfigMap %s modified/created", cm.Name),
+						})
+					}
+				}
+			}
+		}
+
+		svcs, err := c.cs.CoreV1().Services(ns).List(ctx, metav1.ListOptions{})
+		if err == nil {
+			for _, svc := range svcs.Items {
+				t := svc.CreationTimestamp.Time
+				if !t.IsZero() && !t.Before(windowStart) && !t.After(windowEnd) {
+					key := fmt.Sprintf("svc:%s:%s", svc.Namespace, svc.Name)
+					if !seen[key] {
+						seen[key] = true
+						out = append(out, incident.ChangeRecord{
+							Timestamp: t,
+							Resource:  fmt.Sprintf("service/%s/%s", svc.Namespace, svc.Name),
+							Namespace: svc.Namespace,
+							Category:  incident.ChangeCategoryKubernetes,
+							Summary:   fmt.Sprintf("%s Service modified", svc.Name),
+						})
+					}
+				}
+			}
+		}
+	}
+
+	return out, nil
 }

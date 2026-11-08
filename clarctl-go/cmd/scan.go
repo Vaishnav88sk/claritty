@@ -17,8 +17,9 @@ import (
 )
 
 var (
-	scanApply  bool
-	scanDryRun bool
+	scanApply        bool
+	scanDryRun       bool
+	scanChangeWindow int
 )
 
 var scanCmd = &cobra.Command{
@@ -35,6 +36,9 @@ var scanCmd = &cobra.Command{
 		ui.PrintBanner()
 
 		cfg.DryRun = scanDryRun
+		if scanChangeWindow > 0 {
+			cfg.ChangeWindowMinutes = scanChangeWindow
+		}
 
 		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
@@ -71,6 +75,7 @@ var scanCmd = &cobra.Command{
 func init() {
 	scanCmd.Flags().BoolVar(&scanApply, "apply", false, "Prompt to apply remediation after scan")
 	scanCmd.Flags().BoolVar(&scanDryRun, "dry-run", true, "Dry run mode — print commands but don't execute")
+	scanCmd.Flags().IntVar(&scanChangeWindow, "change-window", 60, "Lookback window in minutes to investigate recent changes (default 60m)")
 }
 
 // handleReport persists, renders and optionally remediates an incident.

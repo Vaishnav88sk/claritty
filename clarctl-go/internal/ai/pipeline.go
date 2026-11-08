@@ -115,12 +115,43 @@ func (p *Pipeline) runPipeline(ctx context.Context) (*incident.Report, error) {
 	ec := incident.NewEvidenceCollector()
 	timeline := incident.NewTimelineEngine()
 
+	windowDuration := time.Duration(p.cfg.ChangeWindowMinutes) * time.Minute
+	if windowDuration <= 0 {
+		windowDuration = 60 * time.Minute
+	}
+	changeEngine := incident.NewChangeEngine(windowDuration, time.Now().UTC())
+
 	// ── Stage 1: Triage ────────────────────────────────────────────────────
 	fmt.Println("  🔍 Stage 1/6: Triage Agent — scanning cluster...")
 	triageData, err := p.collectTriageData(ctx, ec, timeline)
 	if err != nil {
 		return nil, fmt.Errorf("triage data collection: %w", err)
 	}
+
+	// Detect recent changes for "What Changed?" investigation (Issue #51)
+	if p.k8sCli != nil {
+		recentChanges, err := p.k8sCli.DetectRecentChanges(ctx, p.cfg.Namespaces, windowDuration, time.Now().UTC())
+		if err == nil {
+			for _, chg := range recentChanges {
+				changeEngine.AddChange(chg)
+			}
+		}
+	}
+
+	// Correlate changes against problem workloads and affected namespaces
+	var problemWorkloads []string
+	for _, pod := range triageData.Pods {
+		problemWorkloads = append(problemWorkloads, pod.Name, fmt.Sprintf("pod/%s/%s", pod.Namespace, pod.Name))
+	}
+	for _, ev := range triageData.Events {
+		problemWorkloads = append(problemWorkloads, ev.Object)
+	}
+	changeEngine.Correlate(problemWorkloads, p.cfg.Namespaces)
+
+	// Ingest correlated changes into Unified Evidence Model and Chronological Timeline
+	changeEngine.IngestEvidence(ec, 0.50)
+	changeEngine.IngestTimeline(timeline, 0.50)
+
 	triageSummary, err := p.callAgent(ctx, buildTriagePrompt(triageData, p.cfg))
 	if err != nil {
 		return nil, fmt.Errorf("triage agent: %w", err)
@@ -152,6 +183,7 @@ func (p *Pipeline) runPipeline(ctx context.Context) (*incident.Report, error) {
 		truncate(triageSummary, 1000),
 		truncate(metricsSummary, 1000),
 		truncate(logSummary, 1000),
+		changeEngine.FormatForAI(10),
 	))
 	if err != nil {
 		return nil, fmt.Errorf("infra agent: %w", err)
@@ -180,12 +212,13 @@ func (p *Pipeline) runPipeline(ctx context.Context) (*incident.Report, error) {
 		truncate(runbookSummary, 1000),
 		ec,
 		timeline,
+		changeEngine,
 	))
 	if err != nil {
 		return nil, fmt.Errorf("commander agent: %w", err)
 	}
 
-	return parseReport(finalJSON, p.cfg.LLMModel, ec, timeline)
+	return parseReport(finalJSON, p.cfg.LLMModel, ec, timeline, changeEngine)
 }
 
 // callAgent sends a prompt to the LLM and returns the text response.
@@ -536,9 +569,9 @@ Output a structured log analysis report.`,
 	)
 }
 
-func buildInfraPrompt(triage, metrics, logs string) string {
+func buildInfraPrompt(triage, metrics, logs, changes string) string {
 	return fmt.Sprintf(`You are a Kubernetes Infrastructure Diagnostician.
-Based on the findings below, diagnose if infrastructure constraints are causing the incident.
+Based on the findings below, diagnose if infrastructure constraints or recent system changes are causing the incident.
 
 TRIAGE: %s
 
@@ -546,16 +579,21 @@ METRICS: %s
 
 LOGS: %s
 
+RECENT CHANGES ("WHAT CHANGED?"):
+%s
+
 Analyze:
 1. Are resource quotas being hit in any namespace?
 2. Are there PVC binding issues?
 3. Are HPAs at max replicas and unable to scale?
 4. Are node taints blocking scheduling?
 5. Are init containers failing?
-6. Is this an infrastructure cause (quotas, storage, scheduling) or application cause (code bug, config)?
+6. Did a recent deployment, container image update, config change, or ArgoCD sync trigger or contribute to this incident?
+   NOTE: Correlation is NOT causation. Evaluate if logs and errors confirm that the change caused the failure.
+7. Is this an infrastructure cause (quotas, storage, scheduling) or application cause (code bug, config, new image)?
 
 Output a structured infrastructure diagnosis.`,
-		truncate(triage, 1200), truncate(metrics, 800), truncate(logs, 800),
+		truncate(triage, 1200), truncate(metrics, 800), truncate(logs, 800), truncate(changes, 1000),
 	)
 }
 
@@ -592,7 +630,7 @@ Output a structured remediation plan with exact executable kubectl commands.`,
 	)
 }
 
-func buildCommanderPrompt(triage, metrics, logs, infra, runbook string, ec *incident.EvidenceCollector, timeline *incident.TimelineEngine) string {
+func buildCommanderPrompt(triage, metrics, logs, infra, runbook string, ec *incident.EvidenceCollector, timeline *incident.TimelineEngine, changeEngine *incident.ChangeEngine) string {
 	evidenceText := "(No explicit telemetry evidence recorded)"
 	if ec != nil {
 		evidenceText = ec.FormatForPrompt()
@@ -601,6 +639,11 @@ func buildCommanderPrompt(triage, metrics, logs, infra, runbook string, ec *inci
 	timelineText := "(No chronological timeline events recorded)"
 	if timeline != nil {
 		timelineText = timeline.FormatForAI(25)
+	}
+
+	changesText := "(No recent changes detected in lookback window)"
+	if changeEngine != nil {
+		changesText = changeEngine.FormatForAI(15)
 	}
 
 	return fmt.Sprintf(`You are the Incident Commander. Synthesize all findings into a final incident report.
@@ -612,11 +655,22 @@ INCIDENT TIMELINE:
 COLLECTED EVIDENCE:
 %s
 
+RECENT CHANGES ("WHAT CHANGED?"):
+%s
+
 TRIAGE: %s
 METRICS: %s
 LOGS: %s
 INFRA: %s
 RUNBOOK PLAN: %s
+
+CRITICAL RULES FOR "WHAT CHANGED?" INVESTIGATION:
+1. Examine the RECENT CHANGES ("WHAT CHANGED?") that occurred shortly before the incident (deployments, config changes, git commits, image versions, ArgoCD syncs).
+2. CORRELATION IS NOT CAUSATION:
+   - Do NOT assume a deployment or config change caused the incident solely because it happened before the incident.
+   - Only declare a change as the root cause in "conclusions" if concrete evidence (e.g., crash logs matching the new image version, missing config keys, failed endpoints) confirms the causal link.
+   - If a change is suspicious but lacks direct proof, record it under "hypotheses" or "contributing_factors", with validation steps (e.g. "rollback to previous revision to test if crash persists").
+3. Include the relevant change details and evidence IDs in "root_cause" and "contributing_factors" if confirmed.
 
 CRITICAL RULES FOR EVIDENCE-BACKED ROOT CAUSE ANALYSIS (RCA):
 1. Every conclusion in "conclusions" MUST be backed by specific evidence ID(s) from the COLLECTED EVIDENCE above (e.g. ["E1", "E2"]).
@@ -673,6 +727,7 @@ Output EXACTLY this JSON structure:
 Only report CONFIRMED issues with real affected pod names from the triage data. If cluster is healthy, set has_issue=false and severity=SEV4.`,
 		truncate(timelineText, 2500),
 		truncate(evidenceText, 2500),
+		truncate(changesText, 1500),
 		truncate(triage, 1000), truncate(metrics, 700),
 		truncate(logs, 700), truncate(infra, 700), truncate(runbook, 800),
 	)
@@ -717,7 +772,7 @@ type agentOutput struct {
 
 var jsonBlockRe = regexp.MustCompile(`(?s)\{.*\}`)
 
-func parseReport(raw, llmModel string, ec *incident.EvidenceCollector, timeline *incident.TimelineEngine) (*incident.Report, error) {
+func parseReport(raw, llmModel string, ec *incident.EvidenceCollector, timeline *incident.TimelineEngine, changeEngine *incident.ChangeEngine) (*incident.Report, error) {
 	cleaned := stripMarkdownFences(raw)
 	match := jsonBlockRe.FindString(cleaned)
 	if match == "" {
@@ -859,6 +914,11 @@ func parseReport(raw, llmModel string, ec *incident.EvidenceCollector, timeline 
 	// Populate Chronological Incident Timeline
 	if timeline != nil {
 		r.Timeline = timeline.Events()
+	}
+
+	// Populate "What Changed?" investigated changes
+	if changeEngine != nil {
+		r.Changes = changeEngine.All()
 	}
 
 	// Fallback: If RootCause is empty but Conclusions exist, populate RootCause

@@ -4,7 +4,9 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
@@ -186,5 +188,47 @@ func TestCollectSnapshot_NamespaceFilter(t *testing.T) {
 	}
 	if pods[0].Name != "pod-default" {
 		t.Errorf("Expected pod-default, got %s", pods[0].Name)
+	}
+}
+
+func TestDetectRecentChanges(t *testing.T) {
+	ctx := context.Background()
+	now := time.Now().UTC()
+
+	dep := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "payment-api",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"deployment.kubernetes.io/revision": "2",
+			},
+		},
+		Status: appsv1.DeploymentStatus{
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type:           appsv1.DeploymentProgressing,
+					LastUpdateTime: metav1.NewTime(now.Add(-2 * time.Minute)),
+				},
+			},
+		},
+	}
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "app-config",
+			Namespace:         "default",
+			CreationTimestamp: metav1.NewTime(now.Add(-1 * time.Minute)),
+		},
+	}
+
+	cs := fake.NewSimpleClientset(dep, cm)
+	c := NewWithClient(cs)
+
+	changes, err := c.DetectRecentChanges(ctx, []string{"default"}, 30*time.Minute, now)
+	if err != nil {
+		t.Fatalf("DetectRecentChanges error: %v", err)
+	}
+	if len(changes) != 2 {
+		t.Fatalf("Expected 2 changes, got %d", len(changes))
 	}
 }

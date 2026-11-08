@@ -16,6 +16,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
+
+	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/incident"
 )
 
 // Client wraps a Kubernetes clientset for cluster operations.
@@ -357,4 +359,220 @@ func summarisePod(p corev1.Pod) PodSummary {
 		}
 	}
 	return ps
+}
+
+// ─── What Changed? Investigation ─────────────────────────────────────────────
+
+// DetectRecentChanges scans for deployments, configmaps, services, events, and node changes
+// within the specified lookback window before refTime. Complies with Issue #51.
+func (c *Client) DetectRecentChanges(ctx context.Context, namespaces []string, window time.Duration, refTime time.Time) ([]incident.ChangeRecord, error) {
+	if window <= 0 {
+		window = 60 * time.Minute
+	}
+	if refTime.IsZero() {
+		refTime = time.Now().UTC()
+	}
+	windowStart := refTime.Add(-window)
+	windowEnd := refTime.Add(5 * time.Minute)
+
+	var out []incident.ChangeRecord
+	seen := make(map[string]bool)
+
+	nsList := namespaces
+	if len(nsList) == 0 {
+		nsList = []string{metav1.NamespaceAll}
+	}
+
+	// 1. Deployments (Rollouts, revision updates, container image updates, Git commits)
+	for _, ns := range nsList {
+		deps, err := c.cs.AppsV1().Deployments(ns).List(ctx, metav1.ListOptions{})
+		if err == nil {
+			for _, dep := range deps.Items {
+				rev := dep.Annotations["deployment.kubernetes.io/revision"]
+				gitCommit := dep.Annotations["git.commit"]
+				if gitCommit == "" {
+					gitCommit = dep.Annotations["git-commit"]
+				}
+				if gitCommit == "" {
+					gitCommit = dep.Annotations["app.kubernetes.io/version"]
+				}
+				argocdWave := dep.Annotations["argocd.argoproj.io/sync-wave"]
+
+				var img string
+				if len(dep.Spec.Template.Spec.Containers) > 0 {
+					img = dep.Spec.Template.Spec.Containers[0].Image
+				}
+
+				// Check condition update times (rollout updates)
+				for _, cond := range dep.Status.Conditions {
+					t := cond.LastUpdateTime.Time
+					if !t.IsZero() && !t.Before(windowStart) && !t.After(windowEnd) {
+						key := fmt.Sprintf("dep:%s:%s", dep.Namespace, dep.Name)
+						if !seen[key] {
+							seen[key] = true
+							summary := fmt.Sprintf("%s deployed", dep.Name)
+							if img != "" {
+								summary = fmt.Sprintf("%s %s deployed", dep.Name, img)
+							}
+							if rev != "" {
+								summary += fmt.Sprintf(" (rev %s)", rev)
+							}
+
+							details := map[string]interface{}{
+								"revision":  rev,
+								"image":     img,
+								"condition": cond.Type,
+								"reason":    cond.Reason,
+								"message":   cond.Message,
+							}
+							if gitCommit != "" {
+								details["git_commit"] = gitCommit
+							}
+							if argocdWave != "" {
+								details["argocd_sync_wave"] = argocdWave
+							}
+
+							out = append(out, incident.ChangeRecord{
+								Timestamp: t,
+								Resource:  fmt.Sprintf("deployment/%s/%s", dep.Namespace, dep.Name),
+								Namespace: dep.Namespace,
+								Category:  incident.ChangeCategoryDeployment,
+								Summary:   summary,
+								Details:   details,
+							})
+
+							if gitCommit != "" {
+								out = append(out, incident.ChangeRecord{
+									Timestamp: t,
+									Resource:  fmt.Sprintf("deployment/%s/%s", dep.Namespace, dep.Name),
+									Namespace: dep.Namespace,
+									Category:  incident.ChangeCategoryGitCommit,
+									Summary:   fmt.Sprintf("Git commit %s deployed on %s", gitCommit, dep.Name),
+									Details:   details,
+								})
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	// 2. ConfigMaps (Configuration changes)
+	for _, ns := range nsList {
+		cms, err := c.cs.CoreV1().ConfigMaps(ns).List(ctx, metav1.ListOptions{})
+		if err == nil {
+			for _, cm := range cms.Items {
+				t := cm.CreationTimestamp.Time
+				if !t.IsZero() && !t.Before(windowStart) && !t.After(windowEnd) {
+					key := fmt.Sprintf("cm:%s:%s", cm.Namespace, cm.Name)
+					if !seen[key] {
+						seen[key] = true
+						out = append(out, incident.ChangeRecord{
+							Timestamp: t,
+							Resource:  fmt.Sprintf("configmap/%s/%s", cm.Namespace, cm.Name),
+							Namespace: cm.Namespace,
+							Category:  incident.ChangeCategoryConfig,
+							Summary:   fmt.Sprintf("ConfigMap %s modified/created", cm.Name),
+							Details: map[string]interface{}{
+								"keys_count": len(cm.Data),
+							},
+						})
+					}
+				}
+			}
+		}
+	}
+
+	// 3. Services (K8s Service changes)
+	for _, ns := range nsList {
+		svcs, err := c.cs.CoreV1().Services(ns).List(ctx, metav1.ListOptions{})
+		if err == nil {
+			for _, svc := range svcs.Items {
+				t := svc.CreationTimestamp.Time
+				if !t.IsZero() && !t.Before(windowStart) && !t.After(windowEnd) {
+					key := fmt.Sprintf("svc:%s:%s", svc.Namespace, svc.Name)
+					if !seen[key] {
+						seen[key] = true
+						out = append(out, incident.ChangeRecord{
+							Timestamp: t,
+							Resource:  fmt.Sprintf("service/%s/%s", svc.Namespace, svc.Name),
+							Namespace: svc.Namespace,
+							Category:  incident.ChangeCategoryKubernetes,
+							Summary:   fmt.Sprintf("%s Service modified", svc.Name),
+							Details: map[string]interface{}{
+								"type": string(svc.Spec.Type),
+							},
+						})
+					}
+				}
+			}
+		}
+	}
+
+	// 4. K8s Events (Scaling, Images, ArgoCD syncs, Environment)
+	for _, ns := range nsList {
+		evs, err := c.cs.CoreV1().Events(ns).List(ctx, metav1.ListOptions{})
+		if err == nil {
+			for _, ev := range evs.Items {
+				var t time.Time
+				if !ev.LastTimestamp.IsZero() {
+					t = ev.LastTimestamp.Time
+				} else if !ev.EventTime.IsZero() {
+					t = ev.EventTime.Time
+				} else if !ev.FirstTimestamp.IsZero() {
+					t = ev.FirstTimestamp.Time
+				}
+
+				if t.IsZero() || t.Before(windowStart) || t.After(windowEnd) {
+					continue
+				}
+
+				key := fmt.Sprintf("ev:%s:%s:%s", ev.Namespace, ev.InvolvedObject.Name, ev.Reason)
+				if seen[key] {
+					continue
+				}
+
+				reason := ev.Reason
+				msg := ev.Message
+				lowerReason := strings.ToLower(reason)
+				lowerMsg := strings.ToLower(msg)
+
+				var cat incident.ChangeCategory
+				var summary string
+
+				if reason == "ScalingReplicaSet" || (reason == "SuccessfulCreate" && ev.InvolvedObject.Kind == "ReplicaSet") {
+					cat = incident.ChangeCategoryDeployment
+					summary = fmt.Sprintf("%s scaled: %s", ev.InvolvedObject.Name, msg)
+				} else if reason == "Pulling" || reason == "Pulled" {
+					cat = incident.ChangeCategoryImage
+					summary = fmt.Sprintf("Image event for %s: %s", ev.InvolvedObject.Name, msg)
+				} else if strings.Contains(lowerReason, "sync") || strings.Contains(lowerMsg, "argocd") || ev.InvolvedObject.Kind == "Application" {
+					cat = incident.ChangeCategoryArgoCD
+					summary = fmt.Sprintf("ArgoCD sync event on %s: %s", ev.InvolvedObject.Name, msg)
+				} else if reason == "NodeNotReady" || reason == "NodeReady" {
+					cat = incident.ChangeCategoryEnvironment
+					summary = fmt.Sprintf("Node status changed: %s", msg)
+				}
+
+				if cat != "" {
+					seen[key] = true
+					out = append(out, incident.ChangeRecord{
+						Timestamp: t,
+						Resource:  fmt.Sprintf("%s/%s/%s", strings.ToLower(ev.InvolvedObject.Kind), ev.Namespace, ev.InvolvedObject.Name),
+						Namespace: ev.Namespace,
+						Category:  cat,
+						Summary:   summary,
+						Details: map[string]interface{}{
+							"reason":  reason,
+							"message": msg,
+							"count":   ev.Count,
+						},
+					})
+				}
+			}
+		}
+	}
+
+	return out, nil
 }

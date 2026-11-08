@@ -144,6 +144,17 @@ func TestPrintIncidentDetail_EvidenceBacked(t *testing.T) {
 		},
 	}
 
+	report.Changes = []incident.ChangeRecord{
+		{
+			Timestamp:  time.Date(2026, 11, 8, 14, 1, 0, 0, time.UTC),
+			Resource:   "deployment/default/payment-api",
+			Category:   incident.ChangeCategoryDeployment,
+			Summary:    "payment-api v1.43 deployed",
+			Correlated: true,
+			EvidenceID: "E1",
+		},
+	}
+
 	PrintIncidentDetail(report)
 
 	w.Close()
@@ -169,5 +180,8 @@ func TestPrintIncidentDetail_EvidenceBacked(t *testing.T) {
 	}
 	if !strings.Contains(output, "Incident Timeline:") || !strings.Contains(output, "Deployment v1.43 rollout") {
 		t.Errorf("Expected timeline in output, got:\n%s", output)
+	}
+	if !strings.Contains(output, "Recent Changes Investigated") || !strings.Contains(output, "payment-api v1.43 deployed") {
+		t.Errorf("Expected recent changes in output, got:\n%s", output)
 	}
 }

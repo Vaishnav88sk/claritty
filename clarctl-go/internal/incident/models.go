@@ -76,6 +76,7 @@ type Report struct {
 	Conclusions []Conclusion    `json:"conclusions,omitempty"`
 	Hypotheses  []Hypothesis    `json:"hypotheses,omitempty"`
 	Timeline    []TimelineEvent `json:"timeline,omitempty"`
+	Changes     []ChangeRecord  `json:"changes,omitempty"`
 
 	// Remediation
 	RemediationPlan []RemediationStep `json:"remediation_plan"`

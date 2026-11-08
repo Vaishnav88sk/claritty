@@ -3,10 +3,14 @@ package ai
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/config"
 	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/incident"
 	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/k8s"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 )
 
@@ -195,7 +199,7 @@ func TestParseReport_GuardrailUnsupportedConclusionsDemoted(t *testing.T) {
 		]
 	}`
 
-	report, err := parseReport(raw, "mock-model", ec, nil)
+	report, err := parseReport(raw, "mock-model", ec, nil, nil)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -244,5 +248,136 @@ func TestMineLogEvidence(t *testing.T) {
 	}
 	if events[0].Timestamp.IsZero() {
 		t.Errorf("Expected parsed timestamp for log timeline event")
+	}
+}
+
+func TestPipeline_WhatChangedInvestigation(t *testing.T) {
+	now := time.Now().UTC()
+	recentTime := metav1.NewTime(now.Add(-2 * time.Minute))
+
+	// Problem pod
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "payment-api-7b89-xyz",
+			Namespace: "default",
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodFailed,
+			ContainerStatuses: []corev1.ContainerStatus{
+				{
+					Name:         "app",
+					RestartCount: 6,
+					Ready:        false,
+					State: corev1.ContainerState{
+						Waiting: &corev1.ContainerStateWaiting{
+							Reason: "CrashLoopBackOff",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	// Recent deployment of payment-api v1.43
+	dep := &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "payment-api",
+			Namespace: "default",
+			Annotations: map[string]string{
+				"deployment.kubernetes.io/revision": "43",
+				"app.kubernetes.io/version":         "v1.43",
+			},
+		},
+		Spec: appsv1.DeploymentSpec{
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
+						{Name: "app", Image: "payment-api:v1.43"},
+					},
+				},
+			},
+		},
+		Status: appsv1.DeploymentStatus{
+			Conditions: []appsv1.DeploymentCondition{
+				{
+					Type:           appsv1.DeploymentProgressing,
+					Status:         corev1.ConditionTrue,
+					LastUpdateTime: recentTime,
+				},
+			},
+		},
+	}
+
+	fakeCS := fake.NewSimpleClientset(pod, dep)
+	k8sClient := k8s.NewWithClient(fakeCS)
+
+	cfg := &config.Config{
+		LLMProvider:         "mock",
+		LLMModel:            "mock-model",
+		RestartWarningCnt:   2,
+		PodLogTailLines:     10,
+		Namespaces:          []string{"default"},
+		ChangeWindowMinutes: 60,
+	}
+
+	mockOutput := `{
+		"has_issue": true,
+		"severity": "SEV1",
+		"title": "Payment API CrashLoopBackOff after v1.43 deployment",
+		"category": "crashloop",
+		"affected_namespaces": ["default"],
+		"root_cause": "payment-api v1.43 deployed with nil pointer [E1]",
+		"conclusions": [
+			{
+				"statement": "payment-api fails after deployment",
+				"evidence_ids": ["E1"],
+				"reasoning": "Deployment v1.43 occurred shortly before crash loop."
+			}
+		],
+		"hypotheses": [],
+		"confidence_score": 90,
+		"remediation_plan": [
+			{"step_number": 1, "description": "Rollback deployment", "command": "kubectl rollout undo deployment/payment-api -n default", "is_destructive": false, "is_automated": true}
+		]
+	}`
+
+	pipeline := &Pipeline{
+		cfg:    cfg,
+		k8sCli: k8sClient,
+		llm:    &MockLLM{Response: mockOutput},
+	}
+
+	report, err := pipeline.RunScan(context.Background())
+	if err != nil {
+		t.Fatalf("RunScan failed: %v", err)
+	}
+
+	if len(report.Changes) == 0 {
+		t.Fatalf("Expected detected changes in report, got 0")
+	}
+
+	foundDeployment := false
+	for _, c := range report.Changes {
+		if c.Category == incident.ChangeCategoryDeployment && c.Correlated {
+			foundDeployment = true
+			if c.Relevance < 0.50 {
+				t.Errorf("Expected correlated deployment to have high relevance, got %.2f", c.Relevance)
+			}
+		}
+	}
+	if !foundDeployment {
+		t.Errorf("Expected correlated deployment change in report.Changes")
+	}
+
+	// Verify timeline contains change events
+	foundTimelineChange := false
+	for _, te := range report.Timeline {
+		if te.Type == "change_event" {
+			foundTimelineChange = true
+			break
+		}
+	}
+	if !foundTimelineChange {
+		t.Errorf("Expected timeline to contain change_event")
 	}
 }

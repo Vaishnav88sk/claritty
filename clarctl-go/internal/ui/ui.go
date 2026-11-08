@@ -167,6 +167,33 @@ func PrintIncidentDetail(r *incident.Report) {
 		fmt.Println()
 	}
 
+	if len(r.Changes) > 0 {
+		fmt.Println(styleHeader.Render("Recent Changes Investigated (\"What Changed?\"):"))
+		for _, chg := range r.Changes {
+			timeStr := "--:--"
+			if !chg.Timestamp.IsZero() {
+				timeStr = chg.Timestamp.UTC().Format("15:04")
+			}
+			corrBadge := ""
+			if chg.Correlated {
+				corrBadge = " " + styleWarn.Render("[CORRELATED]")
+			}
+			evRef := ""
+			if chg.EvidenceID != "" {
+				evRef = " " + styleGood.Render(fmt.Sprintf("[%s]", chg.EvidenceID))
+			}
+			fmt.Printf("  %s  %s %s%s%s%s\n",
+				styleDim.Render(timeStr),
+				styleBold.Render(fmt.Sprintf("[%s]", chg.Category)),
+				styleDim.Render(fmt.Sprintf("%s: ", chg.Resource)),
+				chg.Summary,
+				corrBadge,
+				evRef,
+			)
+		}
+		fmt.Println()
+	}
+
 	if len(r.Conclusions) > 0 {
 		fmt.Println(styleHeader.Render("Evidence-Backed Conclusions:"))
 		for _, c := range r.Conclusions {

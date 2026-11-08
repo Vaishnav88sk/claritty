@@ -60,6 +60,7 @@ type Config struct {
 	PodLogTailLines     int
 	MaxEventsPerScan    int
 	AgentTimeoutSeconds int
+	ChangeWindowMinutes int
 
 	// Storage
 	DBPath        string
@@ -135,6 +136,7 @@ func Load() (*Config, error) {
 		PodLogTailLines:     getenvInt("POD_LOG_TAIL_LINES", 100),
 		MaxEventsPerScan:    getenvInt("MAX_EVENTS_PER_SCAN", 50),
 		AgentTimeoutSeconds: getenvInt("AGENT_TIMEOUT_SECONDS", 120),
+		ChangeWindowMinutes: getenvInt("CHANGE_WINDOW_MINUTES", 60),
 
 		// Storage
 		DBPath:        getenv("DB_PATH", filepath.Join(clarittyDir, "clarctl.db")),
