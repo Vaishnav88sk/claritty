@@ -152,10 +152,11 @@ func TestListIncidents(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "cluster", "namespace", "severity", "status", "title", "category", "root_cause",
 			"contributing_factors", "affected_services", "affected_namespaces", "remediation_plan",
+			"evidence", "conclusions", "hypotheses", "timeline", "changes",
 			"llm_model", "confidence", "has_issue", "detected_at", "resolved_at", "scan_duration_secs",
 		}).AddRow(
 			"inc-1", "cluster-a", "default", "SEV1", "INVESTIGATING", "Pod Crash", "Compute", "OOM",
-			"[]", "[]", "[]", "[]", "gpt-4", 90, true, time.Now(), nil, 0.0,
+			"[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "gpt-4", 90, true, time.Now(), nil, 0.0,
 		))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/incidents", nil)
@@ -177,10 +178,11 @@ func TestGetIncidentByID(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "cluster", "namespace", "severity", "status", "title", "category", "root_cause",
 			"contributing_factors", "affected_services", "affected_namespaces", "remediation_plan",
+			"evidence", "conclusions", "hypotheses", "timeline", "changes",
 			"llm_model", "confidence", "has_issue", "detected_at", "resolved_at", "scan_duration_secs",
 		}).AddRow(
 			"inc-123", "cluster-a", "default", "SEV1", "INVESTIGATING", "Pod Crash", "Compute", "OOM",
-			"[]", "[]", "[]", "[]", "gpt-4", 90, true, time.Now(), nil, 0.0,
+			"[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "[]", "gpt-4", 90, true, time.Now(), nil, 0.0,
 		))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/incidents/inc-123", nil)

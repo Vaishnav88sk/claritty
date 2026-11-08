@@ -84,8 +84,11 @@ A lightweight, in-cluster daemon (the Agent) that continuously monitors your inf
 - 📊 **Node-level & Pod-level Metrics**: Real-time CPU, memory, and resource usage collection.
 - ⚡ **Auto Incident Detection**: Detects complex cascading failures, API server throttling, DNS resolution timeouts, Split-Brain StatefulSets, network partition deadlocks, alongside standard CrashLoopBackOff, OOMKilled, and Pending states.
 - 🧠 **6-Stage AI Agent Pipeline**: Triage -> Metrics -> Logs -> Infra -> Runbook -> Commander agents collaboratively diagnose root causes.
+- 🔍 **Unified Evidence Model**: Strongly-typed evidence mapping across logs, metrics, events, and configs, grounding all conclusions in verified data (`[E1, E2]`).
+- ⏱ **Incident Timeline Engine**: Chronological correlation of pod lifecycle events, warning alerts, and error log anomalies.
+- 🔄 **"What Changed?" Delta Engine**: Automated detection and correlation of recent rollouts, image tag mutations, replica scaling, and config updates.
 - 🚨 **Interactive Auto-Remediation (CLI)**: Proposes step-by-step kubectl fixes locally. Prompts `y / dry / n` before executing anything.
-- 🌐 **Centralized Dashboard (Agent)**: Web UI to view multi-cluster health, active incidents, and automated remediation plans.
+- 🌐 **Centralized Dashboard (Agent)**: Web UI to view multi-cluster health, active incidents, incident timelines, recent changes, and automated remediation plans.
 - 🔒 **Safety First**: All remediation commands are validated against a strict allowlist. Destructive commands are flagged.
 - 📖 **Built-in Runbooks**: Battle-tested YAML runbooks for common failure modes embedded directly in the logic.
 - 🗄 **Incident History**: Database-backed incident logging with MTTR tracking and status lifecycle.
@@ -210,8 +213,10 @@ Claritty's pipeline is trained to handle a vast array of Kubernetes failure stat
 
 - [x] CLI for local cluster diagnosis.
 - [x] Multi-agent collaborative LLM pipeline.
+- [x] Unified Evidence Model & evidence-backed RCA.
+- [x] Incident Timeline Engine & "What Changed?" delta investigation.
 - [x] Agent deployment for continuous in-cluster monitoring.
-- [x] Hub server & Web UI for multi-cluster overview.
+- [x] Hub server & Web UI for multi-cluster overview with timeline and change views.
 - [x] PostgreSQL persistence & Slack integration.
 - [ ] **Add complete K8s observability next** (Custom metrics, distributed tracing integration, eBPF network flows).
 

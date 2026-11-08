@@ -29,6 +29,9 @@ A lightweight, in-cluster daemon (the Agent) that continuously monitors your inf
 - 📊 **Node & Pod-Level Telemetry**: Real-time resource usage and metrics collection.
 - ⚡ **Auto Incident Detection**: Detects cascading failures, API throttling, Split-Brain StatefulSets, network partitions, and more.
 - 🧠 **6-Stage AI Pipeline**: Triage, Metrics, Logs, Infra, Runbook, and Commander agents collaboratively diagnose root causes.
+- 🔍 **Unified Evidence Model**: Strongly-typed evidence tracking linking all conclusions directly to verified cluster data (`[E1, E2]`).
+- ⏱ **Incident Timeline Engine**: Chronological correlation of pod lifecycle events, warning alerts, and error log anomalies.
+- 🔄 **"What Changed?" Engine**: Automatic delta detection for recent rollouts, image mutations, config changes, and restarts.
 - 🚨 **Interactive Auto-Remediation**: Step-by-step CLI prompts (`y / dry / n`) before executing any fix.
-- 🌐 **Centralized Dashboard**: A web UI to view multi-cluster health, active incidents, and automated remediation plans.
+- 🌐 **Centralized Dashboard**: A web UI to view multi-cluster health, active incidents, timeline graphs, and automated remediation plans.
 - 🔒 **Safety First**: Destructive commands are flagged. All fixes are verified against a strict allowlist.

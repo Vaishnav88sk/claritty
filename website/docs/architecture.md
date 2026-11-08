@@ -45,3 +45,36 @@ Each stage represents a specialized, autonomous agent:
 **Safety Guarantee:** The Commander Agent validates all proposed commands against a strict, predefined allowlist. Destructive actions are flagged and heavily restricted.
 
 :::
+
+---
+
+## Unified Evidence Model & Evidence-Backed RCA
+
+Claritty eliminates LLM hallucination and guesswork by enforcing a **Unified Evidence Model**:
+
+- **Strongly-Typed Evidence Items:** Every signal gathered by the pipeline (container logs, resource metrics, Kubernetes events, and resource specs) is assigned an immutable ID (`E1`, `E2`, ...), severity, source component, and timestamp.
+- **Evidence-Backed Conclusions:** The Incident Commander strictly derives conclusions from verified evidence items, citing supporting evidence IDs (e.g., `[E1, E3]`) and explaining the reasoning.
+- **Hypotheses vs. Facts:** If a potential root cause cannot be definitively verified from the gathered data, Claritty classifies it as an unverified *Hypothesis* accompanied by concrete validation steps for the operator.
+
+---
+
+## Incident Timeline Engine
+
+Incidents rarely occur in isolation. Claritty's **Timeline Engine** constructs a unified chronological sequence of events leading up to and during the incident:
+- Kubernetes lifecycle events (`Scheduled`, `Pulled`, `Killing`, `BackOff`, `Failed`)
+- Container log anomalies and fatal exceptions
+- Threshold breaches (e.g. OOM kills, CPU throttling)
+
+Each entry in the timeline is stamped with its relative or absolute time, severity level, source, and linked evidence ID.
+
+---
+
+## "What Changed?" Investigation Engine
+
+The vast majority of production outages stem from recent changes. Claritty automatically correlates cluster deltas within a configurable time window (default 1h):
+- **Workload Rollouts:** Deployment revisions, DaemonSet updates, and replica scaling.
+- **Container Image Mutations:** Image tag updates and digest changes.
+- **Configuration Updates:** ConfigMap and Secret modifications referenced by failing workloads.
+- **Pod Churn & Restarts:** Recent container terminations, exit codes, and restart timestamps.
+
+Deltas occurring in proximity to the incident are marked with a `CORRELATED` indicator and cross-referenced in the root cause analysis.

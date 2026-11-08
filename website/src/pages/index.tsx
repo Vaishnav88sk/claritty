@@ -141,9 +141,12 @@ function HomepageHeader() {
 
 function FeatureGrid() {
   const features = [
+    { title: 'Evidence-Backed RCA', desc: 'Unified evidence mapping connects every finding directly to verified logs, events, and metrics, eliminating AI hallucinations.' },
+    { title: 'Timeline & Delta Engine', desc: 'Chronologically reconstructs incident events and automatically pinpoints recent rollouts, image tags, and config changes.' },
+    { title: 'Interactive Auto-Remediation', desc: 'Step-by-step kubectl remediation with safety guardrails, destructive action warnings, and dry-run validation.' },
     { title: 'Zero-Trust Local RCA', desc: 'Run state-of-the-art incident analysis entirely on your local Ollama models. Your cluster data never leaves your infrastructure.' },
     { title: 'Universal AI Support', desc: 'Plug and play with Groq, Mistral, OpenAI, or Anthropic. Scale your reasoning engines seamlessly.' },
-    { title: 'Decentralized Architecture', desc: 'Designed for Kubernetes. Runs as a lightweight sidecar, requiring zero heavy external dependencies.' }
+    { title: 'Decentralized Architecture', desc: 'Designed for Kubernetes. Runs as a lightweight sidecar or CLI, requiring zero heavy external dependencies.' }
   ];
 
   return (

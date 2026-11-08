@@ -93,7 +93,19 @@ func (s *Store) migrate() error {
 	CREATE INDEX IF NOT EXISTS idx_incidents_detected_at ON incidents(detected_at DESC);
 	CREATE INDEX IF NOT EXISTS idx_incidents_severity ON incidents(severity);
 	`)
-	return err
+	if err != nil {
+		return err
+	}
+
+	// Dynamic migration for Unified Evidence Model & Timeline fields
+	_, _ = s.db.Exec(`
+		ALTER TABLE incidents ADD COLUMN IF NOT EXISTS evidence JSONB;
+		ALTER TABLE incidents ADD COLUMN IF NOT EXISTS conclusions JSONB;
+		ALTER TABLE incidents ADD COLUMN IF NOT EXISTS hypotheses JSONB;
+		ALTER TABLE incidents ADD COLUMN IF NOT EXISTS timeline JSONB;
+		ALTER TABLE incidents ADD COLUMN IF NOT EXISTS changes JSONB;
+	`)
+	return nil
 }
 
 // ─── Cluster operations ───────────────────────────────────────────────────────
@@ -161,6 +173,11 @@ type IncidentRow struct {
 	AffectedServices    json.RawMessage `json:"affected_services"`
 	AffectedNamespaces  json.RawMessage `json:"affected_namespaces"`
 	RemediationPlan     json.RawMessage `json:"remediation_plan"`
+	Evidence            json.RawMessage `json:"evidence,omitempty"`
+	Conclusions         json.RawMessage `json:"conclusions,omitempty"`
+	Hypotheses          json.RawMessage `json:"hypotheses,omitempty"`
+	Timeline            json.RawMessage `json:"timeline,omitempty"`
+	Changes             json.RawMessage `json:"changes,omitempty"`
 	LLMModel            string          `json:"llm_model"`
 	Confidence          int             `json:"confidence_score"`
 	HasIssue            bool            `json:"has_issue"`
@@ -174,6 +191,11 @@ func (s *Store) InsertIncident(inc *IncidentRow) error {
 	as, _ := json.Marshal(inc.AffectedServices)
 	an, _ := json.Marshal(inc.AffectedNamespaces)
 	rp, _ := json.Marshal(inc.RemediationPlan)
+	ev, _ := json.Marshal(inc.Evidence)
+	cn, _ := json.Marshal(inc.Conclusions)
+	hy, _ := json.Marshal(inc.Hypotheses)
+	tl, _ := json.Marshal(inc.Timeline)
+	ch, _ := json.Marshal(inc.Changes)
 
 	// Ensure cluster exists
 	_, _ = s.db.Exec(`INSERT INTO clusters (name, last_seen, health_score) VALUES ($1, NOW(), 0) ON CONFLICT DO NOTHING`, inc.Cluster)
@@ -181,11 +203,13 @@ func (s *Store) InsertIncident(inc *IncidentRow) error {
 	_, err := s.db.Exec(`
 		INSERT INTO incidents (id, cluster, namespace, severity, status, title, category, root_cause,
 			contributing_factors, affected_services, affected_namespaces, remediation_plan,
+			evidence, conclusions, hypotheses, timeline, changes,
 			llm_model, confidence, has_issue, detected_at, scan_duration_secs)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
 		ON CONFLICT (id) DO NOTHING`,
 		inc.ID, inc.Cluster, inc.Namespace, inc.Severity, inc.Status, inc.Title, inc.Category, inc.RootCause,
 		string(cf), string(as), string(an), string(rp),
+		string(ev), string(cn), string(hy), string(tl), string(ch),
 		inc.LLMModel, inc.Confidence, inc.HasIssue, inc.DetectedAt, inc.ScanDurationSecs)
 	return err
 }
@@ -205,6 +229,7 @@ func (s *Store) ListIncidents(f ListIncidentsFilter) ([]IncidentRow, error) {
 	}
 	q := `SELECT id, cluster, namespace, severity, status, title, category, root_cause,
 		contributing_factors, affected_services, affected_namespaces, remediation_plan,
+		evidence, conclusions, hypotheses, timeline, changes,
 		llm_model, confidence, has_issue, detected_at, resolved_at, scan_duration_secs
 		FROM incidents WHERE 1=1`
 	args := []interface{}{}
@@ -243,6 +268,7 @@ func (s *Store) ListIncidents(f ListIncidentsFilter) ([]IncidentRow, error) {
 func (s *Store) GetIncident(id string) (*IncidentRow, error) {
 	row := s.db.QueryRow(`SELECT id, cluster, namespace, severity, status, title, category, root_cause,
 		contributing_factors, affected_services, affected_namespaces, remediation_plan,
+		evidence, conclusions, hypotheses, timeline, changes,
 		llm_model, confidence, has_issue, detected_at, resolved_at, scan_duration_secs
 		FROM incidents WHERE id=$1`, id)
 	rows, err := scanIncidentRows(asRows(row))
@@ -319,9 +345,10 @@ func scanIncidentRows(rows scanner) ([]IncidentRow, error) {
 	var out []IncidentRow
 	for rows.Next() {
 		var inc IncidentRow
-		var cf, as, an, rp []byte
+		var cf, as, an, rp, ev, cn, hy, tl, ch []byte
 		if err := rows.Scan(&inc.ID, &inc.Cluster, &inc.Namespace, &inc.Severity, &inc.Status,
 			&inc.Title, &inc.Category, &inc.RootCause, &cf, &as, &an, &rp,
+			&ev, &cn, &hy, &tl, &ch,
 			&inc.LLMModel, &inc.Confidence, &inc.HasIssue, &inc.DetectedAt, &inc.ResolvedAt, &inc.ScanDurationSecs); err != nil {
 			continue
 		}
@@ -329,6 +356,21 @@ func scanIncidentRows(rows scanner) ([]IncidentRow, error) {
 		inc.AffectedServices = json.RawMessage(as)
 		inc.AffectedNamespaces = json.RawMessage(an)
 		inc.RemediationPlan = json.RawMessage(rp)
+		if len(ev) > 0 && string(ev) != "null" {
+			inc.Evidence = json.RawMessage(ev)
+		}
+		if len(cn) > 0 && string(cn) != "null" {
+			inc.Conclusions = json.RawMessage(cn)
+		}
+		if len(hy) > 0 && string(hy) != "null" {
+			inc.Hypotheses = json.RawMessage(hy)
+		}
+		if len(tl) > 0 && string(tl) != "null" {
+			inc.Timeline = json.RawMessage(tl)
+		}
+		if len(ch) > 0 && string(ch) != "null" {
+			inc.Changes = json.RawMessage(ch)
+		}
 		out = append(out, inc)
 	}
 	return out, nil

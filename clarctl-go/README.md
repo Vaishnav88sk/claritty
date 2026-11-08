@@ -59,14 +59,26 @@ Focuses the 6-stage AI analysis on a single problematic pod:
 clarctl scan pod payment-service-5b689 -n production
 ```
 
-### 3. Interactive Auto-Remediation
-When `clarctl` finds a Root Cause, it generates a step-by-step remediation plan. For each step, it will prompt you:
+### 3. "What Changed?" Investigation Window
+Configure the lookback window for detecting recent deployment rollouts, image tag mutations, and config changes:
+```bash
+clarctl scan namespace production --change-window=30m
+```
+
+### 4. Interactive Auto-Remediation
+When `clarctl` finds a Root Cause, it generates an evidence-backed analysis, incident timeline, correlated changes, and a step-by-step remediation plan. For each step, it will prompt you:
 ```text
 Execute? [y/N/dry]:
 ```
 - `y`: Executes the kubectl command directly against your cluster.
 - `dry`: Runs the command with `--dry-run=client` to validate it safely.
 - `N`: Skips the command.
+
+### 5. Export Structured JSON Output
+Export the full report including evidence entries, timeline, and investigated changes:
+```bash
+clarctl scan namespace production --output=json
+```
 
 ---
 
@@ -108,9 +120,9 @@ go build -o clarctl .
                        └─────────────┘   └─────────────┘  
 ```
 
-1. **Triage Agent**: Determines the scope of the scan.
-2. **Metrics Agent**: Collects pod/node CPU and memory utilization.
-3. **Log Agent**: Fetches tail logs for failing containers.
-4. **Infra Agent**: Inspects K8s events and exit codes.
+1. **Triage Agent**: Scopes failing resources and gathers unified evidence across the cluster.
+2. **Metrics Agent**: Collects pod/node CPU and memory utilization and identifies threshold violations.
+3. **Log Agent**: Fetches tail logs for failing containers and extracts error patterns.
+4. **Infra & Change Agent**: Reconstructs the incident timeline and investigates recent changes ("What Changed?").
 5. **Runbook Agent**: Matches failure patterns against embedded YAML runbooks.
-6. **Incident Commander**: Synthesizes all telemetry into a final Root Cause summary and remediation plan.
+6. **Incident Commander**: Synthesizes telemetry into an evidence-backed root cause report with verified conclusions and interactive remediation.

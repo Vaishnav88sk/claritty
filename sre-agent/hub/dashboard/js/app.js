@@ -235,6 +235,11 @@ function renderIncidentDetail(inc) {
   const factors = tryParseJSON(inc.contributing_factors) || [];
   const plan = tryParseJSON(inc.remediation_plan) || [];
   const namespaces = tryParseJSON(inc.affected_namespaces) || [];
+  const timeline = tryParseJSON(inc.timeline) || [];
+  const changes = tryParseJSON(inc.changes) || [];
+  const conclusions = tryParseJSON(inc.conclusions) || [];
+  const evidence = tryParseJSON(inc.evidence) || [];
+  const hypotheses = tryParseJSON(inc.hypotheses) || [];
 
   return `
     <div>
@@ -265,6 +270,85 @@ function renderIncidentDetail(inc) {
         <div class="section-block">
           <h3>Root Cause</h3>
           <p>${escHtml(inc.root_cause)}</p>
+        </div>` : ''}
+
+      ${timeline.length > 0 ? `
+        <div class="section-block">
+          <h3>Incident Timeline</h3>
+          <div class="timeline-container">
+            ${timeline.map(e => `
+              <div class="timeline-row">
+                <span class="timeline-time">${formatTimeOnly(e.timestamp)}</span>
+                <span class="timeline-badge ${e.severity || 'info'}">${escHtml(e.source || 'k8s')}</span>
+                <div class="timeline-body">
+                  ${e.resource ? `<span class="timeline-resource">[${escHtml(e.resource)}]</span> ` : ''}
+                  <span class="timeline-msg">${escHtml(e.message)}</span>
+                  ${e.evidence_id ? `<span class="evidence-tag">[${escHtml(e.evidence_id)}]</span>` : ''}
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>` : ''}
+
+      ${changes.length > 0 ? `
+        <div class="section-block">
+          <h3>Recent Changes Investigated ("What Changed?")</h3>
+          <div class="changes-container">
+            ${changes.map(c => `
+              <div class="change-row">
+                <span class="timeline-time">${formatTimeOnly(c.timestamp)}</span>
+                <span class="change-cat">${escHtml(c.category)}</span>
+                <div class="change-body">
+                  <span class="timeline-resource">${escHtml(c.resource)}:</span>
+                  <span>${escHtml(c.summary)}</span>
+                  ${c.correlated ? `<span class="correlated-badge">CORRELATED</span>` : ''}
+                  ${c.evidence_id ? `<span class="evidence-tag">[${escHtml(c.evidence_id)}]</span>` : ''}
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>` : ''}
+
+      ${conclusions.length > 0 ? `
+        <div class="section-block">
+          <h3>Evidence-Backed Conclusions</h3>
+          <div class="conclusions-list">
+            ${conclusions.map(c => `
+              <div class="conclusion-card">
+                <div class="conclusion-stmt">
+                  <strong>• ${escHtml(c.statement)}</strong>
+                  ${(c.evidence_ids && c.evidence_ids.length > 0) ? `<span class="evidence-tag">[${escHtml(c.evidence_ids.join(', '))}]</span>` : ''}
+                </div>
+                ${c.reasoning ? `<div class="conclusion-reason">Reasoning: ${escHtml(c.reasoning)}</div>` : ''}
+              </div>`).join('')}
+          </div>
+        </div>` : ''}
+
+      ${evidence.length > 0 ? `
+        <div class="section-block">
+          <h3>Supporting Evidence</h3>
+          <div class="evidence-list">
+            ${evidence.map(ev => `
+              <div class="evidence-row">
+                <span class="evidence-id">${escHtml(ev.id)}</span>
+                <span class="evidence-sev ${ev.severity}">${escHtml(ev.severity)}</span>
+                <div class="evidence-content">
+                  ${ev.resource ? `<span class="timeline-resource">[${escHtml(ev.resource)}]</span> ` : ''}
+                  <span>${escHtml(ev.content)}</span>
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>` : ''}
+
+      ${hypotheses.length > 0 ? `
+        <div class="section-block">
+          <h3 style="color:var(--yellow)">Hypotheses (Unverified / Requires Validation)</h3>
+          <div class="hypotheses-list">
+            ${hypotheses.map(h => `
+              <div class="hypothesis-card">
+                <div class="hypothesis-stmt"><strong>• ${escHtml(h.statement)}</strong></div>
+                ${h.reason ? `<div class="hypothesis-reason">Why: ${escHtml(h.reason)}</div>` : ''}
+                ${(h.validation_steps && h.validation_steps.length > 0) ? `<div class="hypothesis-steps">Validation: ${escHtml(h.validation_steps.join('; '))}</div>` : ''}
+              </div>`).join('')}
+          </div>
         </div>` : ''}
 
       ${factors.length > 0 ? `

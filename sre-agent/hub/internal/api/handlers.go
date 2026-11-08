@@ -85,6 +85,11 @@ func (h *Handler) receiveIncident(w http.ResponseWriter, r *http.Request) {
 	inc.AffectedServices = nullableJSON(payload["affected_services"])
 	inc.AffectedNamespaces = nullableJSON(payload["affected_namespaces"])
 	inc.RemediationPlan = nullableJSON(payload["remediation_plan"])
+	inc.Evidence = nullableJSON(payload["evidence"])
+	inc.Conclusions = nullableJSON(payload["conclusions"])
+	inc.Hypotheses = nullableJSON(payload["hypotheses"])
+	inc.Timeline = nullableJSON(payload["timeline"])
+	inc.Changes = nullableJSON(payload["changes"])
 
 	// Derive namespace from affected_namespaces
 	var nsList []string

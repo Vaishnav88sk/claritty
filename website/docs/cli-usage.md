@@ -19,7 +19,35 @@ Run a comprehensive, real-time diagnostic scan of your entire active Kubernetes 
 ```bash
 clarctl scan
 ```
-This command triggers the 6-stage AI pipeline locally, generating a beautifully formatted terminal output (using `lipgloss` and `bubbletea`) instead of raw JSON.
+This command triggers the 6-stage AI pipeline locally, generating a beautifully formatted terminal dashboard with incident metadata, evidence citations, chronological timeline, and change analysis.
+
+### Scan a Specific Namespace
+Scope the diagnostic scan to a single namespace:
+```bash
+clarctl scan namespace production
+```
+
+### Scan a Specific Pod
+Focus the deep-dive investigation on a specific pod:
+```bash
+clarctl scan pod payment-service-78dfb -n production
+```
+
+### Change Correlation Window (`--change-window`)
+Configure the lookback window for the "What Changed?" engine to detect recent rollouts, image tag mutations, and config changes:
+```bash
+# Look back 30 minutes (default is 1h)
+clarctl scan namespace production --change-window=30m
+
+# Look back 2 hours
+clarctl scan namespace production --change-window=2h
+```
+
+### Structured Output (`--output=json`)
+Export the complete incident report, including evidence items, timeline, changes, conclusions, and remediation plan:
+```bash
+clarctl scan namespace production --output=json
+```
 
 ---
 
