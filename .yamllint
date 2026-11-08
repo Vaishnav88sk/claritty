@@ -10,10 +10,8 @@ rules:
   indentation: disable
 
 ignore: |
-  ai-sre/venv/
   .venv/
   vendor/
   node_modules/
   website/node_modules/
-  agent-python/venv/
   venv/
