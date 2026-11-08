@@ -141,6 +141,32 @@ func PrintIncidentDetail(r *incident.Report) {
 		fmt.Println()
 	}
 
+	if len(r.Timeline) > 0 {
+		fmt.Println(styleHeader.Render("Incident Timeline:"))
+		for _, e := range r.Timeline {
+			timeStr := "??:??"
+			if !e.Timestamp.IsZero() {
+				timeStr = e.Timestamp.Format("15:04:05")
+			}
+			res := ""
+			if e.Resource != "" {
+				res = fmt.Sprintf("%s: ", e.Resource)
+			}
+			evRef := ""
+			if e.EvidenceID != "" {
+				evRef = " " + styleGood.Render(fmt.Sprintf("[%s]", e.EvidenceID))
+			}
+			fmt.Printf("  %s  %s %s%s%s\n",
+				styleDim.Render(timeStr),
+				styleBold.Render(fmt.Sprintf("[%s]", e.Source)),
+				styleDim.Render(res),
+				e.Message,
+				evRef,
+			)
+		}
+		fmt.Println()
+	}
+
 	if len(r.Conclusions) > 0 {
 		fmt.Println(styleHeader.Render("Evidence-Backed Conclusions:"))
 		for _, c := range r.Conclusions {

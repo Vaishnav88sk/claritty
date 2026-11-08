@@ -112,9 +112,10 @@ func (p *Pipeline) RunScan(ctx context.Context) (*incident.Report, error) {
 
 func (p *Pipeline) runPipeline(ctx context.Context) (*incident.Report, error) {
 	ec := incident.NewEvidenceCollector()
+	timeline := incident.NewTimelineEngine()
 
 	fmt.Println("[agent] Stage 1/6: Triage — collecting cluster state...")
-	triage, err := p.collectTriage(ctx, ec)
+	triage, err := p.collectTriage(ctx, ec, timeline)
 	if err != nil {
 		return nil, fmt.Errorf("triage: %w", err)
 	}
@@ -151,16 +152,17 @@ func (p *Pipeline) runPipeline(ctx context.Context) (*incident.Report, error) {
 		truncate(infraSummary, 700),
 		truncate(runbookSummary, 800),
 		ec,
+		timeline,
 	))
 	if err != nil {
 		return nil, fmt.Errorf("commander: %w", err)
 	}
 
-	return parseReport(rawJSON, p.cfg.ClusterName, fullModelName(p.cfg), ec)
+	return parseReport(rawJSON, p.cfg.ClusterName, fullModelName(p.cfg), ec, timeline)
 }
 
 // collectTriage gathers cluster data and builds the triage prompt input.
-func (p *Pipeline) collectTriage(ctx context.Context, ec *incident.EvidenceCollector) (string, error) {
+func (p *Pipeline) collectTriage(ctx context.Context, ec *incident.EvidenceCollector, timeline *incident.TimelineEngine) (string, error) {
 	snap, pods, err := p.k8sCli.CollectSnapshot(ctx, p.cfg.Namespaces)
 	if err != nil {
 		return "", err
@@ -178,12 +180,13 @@ func (p *Pipeline) collectTriage(ctx context.Context, ec *incident.EvidenceColle
 			fmt.Fprintf(&sb, "  Pod=%s NS=%s Phase=%s Reason=%s Restarts=%d Node=%s\n",
 				pod.Name, pod.Namespace, pod.Phase, pod.Reason, pod.Restarts, pod.Node)
 
+			var evID string
 			if ec != nil {
 				sev := incident.EvidenceSeverityWarning
 				if pod.Restarts > 5 || pod.Phase == "Failed" || pod.Reason == "CrashLoopBackOff" || pod.Reason == "OOMKilled" {
 					sev = incident.EvidenceSeverityCritical
 				}
-				ec.Add(incident.Evidence{
+				evItem := ec.Add(incident.Evidence{
 					Source:    "kubernetes",
 					Type:      incident.EvidenceTypeResource,
 					Resource:  fmt.Sprintf("pod/%s/%s", pod.Namespace, pod.Name),
@@ -191,18 +194,44 @@ func (p *Pipeline) collectTriage(ctx context.Context, ec *incident.EvidenceColle
 					Content:   fmt.Sprintf("Pod %s in namespace %s is in %s state (reason: %s, restarts: %d, node: %s)", pod.Name, pod.Namespace, pod.Phase, pod.Reason, pod.Restarts, pod.Node),
 					Relevance: 0.90,
 				})
+				evID = evItem.ID
+			}
+
+			if timeline != nil {
+				timeline.Add(incident.TimelineEvent{
+					Timestamp:  time.Now().UTC(),
+					Source:     "kubernetes",
+					Type:       "pod_state",
+					Resource:   fmt.Sprintf("pod/%s/%s", pod.Namespace, pod.Name),
+					Message:    fmt.Sprintf("Pod %s is %s (restarts: %d)", pod.Name, pod.Phase, pod.Restarts),
+					Severity:   "warning",
+					EvidenceID: evID,
+				})
 			}
 
 			if pod.Logs != "" {
 				fmt.Fprintf(&sb, "  Logs(tail): %s\n", truncate(pod.Logs, 500))
+				var logEvID string
 				if ec != nil {
-					ec.Add(incident.Evidence{
+					evItem := ec.Add(incident.Evidence{
 						Source:    "logs",
 						Type:      incident.EvidenceTypeLog,
 						Resource:  fmt.Sprintf("pod/%s/%s", pod.Namespace, pod.Name),
 						Severity:  incident.EvidenceSeverityCritical,
 						Content:   fmt.Sprintf("Pod logs: %s", truncate(pod.Logs, 150)),
 						Relevance: 0.92,
+					})
+					logEvID = evItem.ID
+				}
+				if timeline != nil {
+					timeline.Add(incident.TimelineEvent{
+						Timestamp:  time.Now().UTC(),
+						Source:     "logs",
+						Type:       "log_error",
+						Resource:   fmt.Sprintf("pod/%s/%s", pod.Namespace, pod.Name),
+						Message:    fmt.Sprintf("Logs error: %s", truncate(pod.Logs, 120)),
+						Severity:   "critical",
+						EvidenceID: logEvID,
 					})
 				}
 			}
@@ -211,14 +240,27 @@ func (p *Pipeline) collectTriage(ctx context.Context, ec *incident.EvidenceColle
 
 	if events != "" {
 		fmt.Fprintf(&sb, "\nRECENT WARNING EVENTS:\n%s", truncate(events, 1000))
+		var evtID string
 		if ec != nil {
-			ec.Add(incident.Evidence{
+			evItem := ec.Add(incident.Evidence{
 				Source:    "k8s-events",
 				Type:      incident.EvidenceTypeEvent,
 				Resource:  p.cfg.ClusterName,
 				Severity:  incident.EvidenceSeverityWarning,
 				Content:   fmt.Sprintf("Warning events: %s", truncate(events, 200)),
 				Relevance: 0.85,
+			})
+			evtID = evItem.ID
+		}
+		if timeline != nil {
+			timeline.Add(incident.TimelineEvent{
+				Timestamp:  time.Now().UTC(),
+				Source:     "k8s-events",
+				Type:       "warning_event",
+				Resource:   p.cfg.ClusterName,
+				Message:    truncate(events, 150),
+				Severity:   "warning",
+				EvidenceID: evtID,
 			})
 		}
 	}
@@ -303,14 +345,22 @@ CRITICAL RULES:
 Output a structured plan with exact kubectl commands.`, triage, metrics, logs, infra)
 }
 
-func buildCommanderPrompt(triage, metrics, logs, infra, runbook string, ec *incident.EvidenceCollector) string {
+func buildCommanderPrompt(triage, metrics, logs, infra, runbook string, ec *incident.EvidenceCollector, timeline *incident.TimelineEngine) string {
 	evidenceText := "(No telemetry evidence recorded)"
 	if ec != nil {
 		evidenceText = ec.FormatForPrompt()
 	}
 
+	timelineText := "(No chronological timeline events recorded)"
+	if timeline != nil {
+		timelineText = timeline.FormatForAI(25)
+	}
+
 	return fmt.Sprintf(`You are the Incident Commander. Synthesize all findings into a final report.
 Output ONLY valid JSON — no markdown, no code fences.
+
+INCIDENT TIMELINE:
+%s
 
 COLLECTED EVIDENCE:
 %s
@@ -323,13 +373,14 @@ RUNBOOK: %s
 
 CRITICAL RULES FOR EVIDENCE-BACKED ROOT CAUSE ANALYSIS (RCA):
 1. Every conclusion in "conclusions" MUST be backed by specific evidence ID(s) from COLLECTED EVIDENCE (e.g. ["E1", "E2"]).
-2. Distinguish evidence from reasoning:
+2. Use the INCIDENT TIMELINE to establish causality (what occurred first vs cascading symptoms).
+3. Distinguish evidence from reasoning:
    - "statement": the factual deduction (e.g. "Redis has no available endpoints")
    - "evidence_ids": valid evidence IDs from COLLECTED EVIDENCE proving this statement
    - "reasoning": how the evidence leads to this conclusion
-3. The AI MUST NOT present unsupported conclusions as facts. Any unverified hypothesis or speculation MUST be placed under "hypotheses", NOT in "conclusions".
-4. In "root_cause", provide a concise explanation citing the key evidence IDs (e.g. "Redis has no available endpoints [E1, E2]").
-5. If the cluster is healthy, set has_issue=false and severity=SEV4.
+4. The AI MUST NOT present unsupported conclusions as facts. Any unverified hypothesis or speculation MUST be placed under "hypotheses", NOT in "conclusions".
+5. In "root_cause", provide a concise explanation citing the key evidence IDs (e.g. "Redis has no available endpoints [E1, E2]").
+6. If the cluster is healthy, set has_issue=false and severity=SEV4.
 
 CRITICAL RULES for remediation_plan:
 1. Commands must CHANGE state — never 'kubectl describe' or 'kubectl get'.
@@ -372,7 +423,7 @@ Output EXACTLY this JSON:
 }
 
 If cluster is healthy, set has_issue=false and severity=SEV4.`,
-		truncate(evidenceText, 2500), triage, metrics, logs, infra, runbook)
+		truncate(timelineText, 2500), truncate(evidenceText, 2500), triage, metrics, logs, infra, runbook)
 }
 
 // ─── Parser ───────────────────────────────────────────────────────────────────
@@ -411,7 +462,7 @@ type agentOutput struct {
 	RunbookUsed string `json:"runbook_used"`
 }
 
-func parseReport(raw, clusterName, modelName string, ec *incident.EvidenceCollector) (*incident.Report, error) {
+func parseReport(raw, clusterName, modelName string, ec *incident.EvidenceCollector, timeline *incident.TimelineEngine) (*incident.Report, error) {
 	cleaned := stripMarkdownFences(raw)
 	match := jsonBlockRe.FindString(cleaned)
 	if match == "" {
@@ -523,6 +574,10 @@ func parseReport(raw, clusterName, modelName string, ec *incident.EvidenceCollec
 		} else {
 			r.Evidence = allEv
 		}
+	}
+
+	if timeline != nil {
+		r.Timeline = timeline.Events()
 	}
 
 	if r.RootCause == "" && len(r.Conclusions) > 0 {

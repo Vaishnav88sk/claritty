@@ -59,4 +59,3 @@ func TestAgentEvidenceCollector(t *testing.T) {
 		t.Errorf("Prompt format mismatch: %s", prompt)
 	}
 }
-

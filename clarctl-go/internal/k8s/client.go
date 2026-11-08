@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -138,6 +139,7 @@ type EventSummary struct {
 	Message   string
 	Count     int32
 	Age       string
+	Timestamp time.Time
 }
 
 // GetWarningEvents returns Warning events across the given namespaces.
@@ -158,6 +160,14 @@ func (c *Client) GetWarningEvents(ctx context.Context, namespaces []string, maxC
 			if len(msg) > 200 {
 				msg = msg[:200] + "..."
 			}
+			var ts time.Time
+			if !ev.LastTimestamp.IsZero() {
+				ts = ev.LastTimestamp.Time
+			} else if !ev.EventTime.IsZero() {
+				ts = ev.EventTime.Time
+			} else if !ev.FirstTimestamp.IsZero() {
+				ts = ev.FirstTimestamp.Time
+			}
 			out = append(out, EventSummary{
 				Namespace: ev.Namespace,
 				Type:      ev.Type,
@@ -165,6 +175,7 @@ func (c *Client) GetWarningEvents(ctx context.Context, namespaces []string, maxC
 				Object:    fmt.Sprintf("%s/%s", ev.InvolvedObject.Kind, ev.InvolvedObject.Name),
 				Message:   msg,
 				Count:     ev.Count,
+				Timestamp: ts,
 			})
 		}
 	}

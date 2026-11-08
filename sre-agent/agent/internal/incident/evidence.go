@@ -145,4 +145,3 @@ func (ec *EvidenceCollector) ToJSON() (string, error) {
 	}
 	return string(b), nil
 }
-

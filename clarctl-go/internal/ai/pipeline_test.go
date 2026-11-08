@@ -195,7 +195,7 @@ func TestParseReport_GuardrailUnsupportedConclusionsDemoted(t *testing.T) {
 		]
 	}`
 
-	report, err := parseReport(raw, "mock-model", ec)
+	report, err := parseReport(raw, "mock-model", ec, nil)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -221,13 +221,14 @@ func TestParseReport_GuardrailUnsupportedConclusionsDemoted(t *testing.T) {
 
 func TestMineLogEvidence(t *testing.T) {
 	ec := incident.NewEvidenceCollector()
+	timeline := incident.NewTimelineEngine()
 	logs := `
 2026-11-08T10:00:00Z Starting application...
 2026-11-08T10:00:01Z panic: runtime error: invalid memory address or nil pointer dereference
 2026-11-08T10:00:02Z connection refused to redis:6379
 2026-11-08T10:00:03Z Normal heartbeat log line
 `
-	mineLogEvidence(logs, "default", "payment-api", ec)
+	mineLogEvidence(logs, "default", "payment-api", ec, timeline)
 
 	all := ec.All()
 	if len(all) != 2 {
@@ -235,5 +236,13 @@ func TestMineLogEvidence(t *testing.T) {
 	}
 	if all[0].Type != incident.EvidenceTypeLog {
 		t.Errorf("Expected log evidence type, got %s", all[0].Type)
+	}
+
+	events := timeline.Events()
+	if len(events) != 2 {
+		t.Fatalf("Expected 2 timeline events, got %d", len(events))
+	}
+	if events[0].Timestamp.IsZero() {
+		t.Errorf("Expected parsed timestamp for log timeline event")
 	}
 }

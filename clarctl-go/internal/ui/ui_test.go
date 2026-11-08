@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/incident"
 )
@@ -133,6 +134,16 @@ func TestPrintIncidentDetail_EvidenceBacked(t *testing.T) {
 		},
 	}
 
+	report.Timeline = []incident.TimelineEvent{
+		{
+			Timestamp:  time.Date(2026, 11, 8, 14, 2, 0, 0, time.UTC),
+			Source:     "deployments",
+			Resource:   "deployment/redis",
+			Message:    "Deployment v1.43 rollout",
+			EvidenceID: "E10",
+		},
+	}
+
 	PrintIncidentDetail(report)
 
 	w.Close()
@@ -155,5 +166,8 @@ func TestPrintIncidentDetail_EvidenceBacked(t *testing.T) {
 	}
 	if !strings.Contains(output, "Hypotheses (Unverified / Requires Validation):") {
 		t.Errorf("Expected hypotheses header in output, got:\n%s", output)
+	}
+	if !strings.Contains(output, "Incident Timeline:") || !strings.Contains(output, "Deployment v1.43 rollout") {
+		t.Errorf("Expected timeline in output, got:\n%s", output)
 	}
 }

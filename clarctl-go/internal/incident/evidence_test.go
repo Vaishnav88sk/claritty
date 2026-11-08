@@ -183,4 +183,3 @@ func TestReport_WithEvidenceBackedRCA(t *testing.T) {
 		t.Errorf("Expected first evidence ID 'E12', got '%s'", decoded.Conclusions[0].EvidenceIDs[0])
 	}
 }
-
