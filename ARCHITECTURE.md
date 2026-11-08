@@ -97,9 +97,8 @@ claritty/
 │   ├── e2e-api/              # End-to-end API test suites
 │   └── load-tests/           # Benchmark and stress testing configurations
 │
-├── docs/                     # Documentation Assets
-│   └── images/               # Logos, CLI GIFs, screenshots, and diagrams
-└── (agent-python/ removed)   # Legacy Python prototype has been completely removed
+└── docs/                     # Documentation Assets
+    └── images/               # Logos, CLI GIFs, screenshots, and diagrams
 ```
 
 ---
@@ -207,14 +206,4 @@ Both `clarctl-go` and `sre-agent/agent` support pluggable AI inference backends:
 * **Mistral AI:** High-accuracy reasoning.
 * **OpenAI:** GPT-4o / GPT-4o-mini support.
 * **Ollama:** 100% air-gapped, local private cluster inference.
-
----
-
-## 7. Migration from Legacy Python Prototype
-
-Claritty originally started as an experimental Python prototype (`ai-sre` / `agent-python`).
-
-* **Why it was replaced:** Python runtimes introduced heavy distribution overhead (50MB+ PyInstaller packages, slow cold-starts, virtual environment setup friction).
-* **Complete Go Rewrite:** The entire platform was rewritten in Go 1.25.0 (`clarctl-go` for the CLI and `sre-agent` for the cluster daemon and hub).
-* **Removal:** The legacy `agent-python/` folder has been removed from the repository. All active development, testing, and production deployments are Go-native.
 
