@@ -85,13 +85,6 @@ claritty/
 │   │   └── agent-deployment.yaml # Agent Deployment spec (50m CPU, 64Mi RAM)
 │   └── docker-compose.yml    # Local multi-service composition (Hub + Agent + Postgres)
 │
-├── claritty-agent-client/    # Lightweight Node/Log Telemetry Collector (Go)
-│   ├── kube/                 # Kubernetes API & metrics-server client wrappers
-│   ├── logs/                 # Container log streaming collector
-│   ├── metrics/              # Node-level CPU & memory telemetry collector
-│   ├── sender/               # HTTP client transmitting metrics payload to backend
-│   └── main.go               # Periodic polling loop (every 10s)
-│
 ├── website/                  # Claritty Documentation & Landing Page
 │   ├── docs/                 # Docusaurus documentation markdown pages
 │   ├── src/                  # React components, landing pages, and styles
@@ -145,9 +138,6 @@ Designed for continuous production operation following the Hub-and-Spoke pattern
   * Serves the compiled Svelte web dashboard directly from embedded static assets on port `8822`.
 * **`deploy/`**:
   * Adheres strictly to the **Principle of Least Privilege**: read-only cluster role permissions for inspecting pods, nodes, events, services, and logs.
-
-### 3.3 `claritty-agent-client/` (Telemetry Streamer)
-* A specialized Go daemon that periodically queries node metrics and container logs via `k8s.io/client-go` and `k8s.io/metrics`, streaming raw telemetry payloads to a designated metrics endpoint.
 
 ---
 
