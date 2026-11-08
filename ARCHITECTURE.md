@@ -205,5 +205,6 @@ Both `clarctl-go` and `sre-agent/agent` support pluggable AI inference backends:
 * **Groq:** Ultra-fast cloud inference (recommended for sub-second CLI triage).
 * **Mistral AI:** High-accuracy reasoning.
 * **OpenAI:** GPT-4o / GPT-4o-mini support.
+* **Anthropic:** Claude 3.5 Sonnet (`claude-3-5-sonnet-latest`) support.
 * **Ollama:** 100% air-gapped, local private cluster inference.
 
