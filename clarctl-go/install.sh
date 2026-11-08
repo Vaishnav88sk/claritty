@@ -79,7 +79,7 @@ if [ ! -f "$CLARITTY_DIR/.env" ]; then
 # Get a free key at https://console.groq.com
 # LLM_MODEL can be left empty for provider defaults or customized to any model
 LLM_PROVIDER=groq
-LLM_MODEL=groq/llama-3.3-70b-versatile
+LLM_MODEL=groq/openai/gpt-oss-120b
 GROQ_API_KEY=your_groq_api_key_here
 # OPENAI_API_KEY=
 # ANTHROPIC_API_KEY=

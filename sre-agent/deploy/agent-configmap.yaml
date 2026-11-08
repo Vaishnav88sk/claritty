@@ -17,7 +17,7 @@ data:
   # LLM provider settings (groq, openai, anthropic, mistral, ollama)
   LLM_PROVIDER: "groq"
   # LLM_MODEL: leave empty to use recommended default or set any model
-  LLM_MODEL: "llama-3.3-70b-versatile"
+  LLM_MODEL: "openai/gpt-oss-120b"
   # Scan interval in seconds (default: 300 = 5 minutes)
   SCAN_INTERVAL_SECS: "300"
   # Comma-separated namespaces to watch. Leave empty for all.

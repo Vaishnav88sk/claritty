@@ -33,7 +33,7 @@ clarctl -h
 ```bash
 # Set your preferred provider (default is groq)
 export LLM_PROVIDER="groq"
-export LLM_MODEL="llama-3.3-70b-versatile"
+export LLM_MODEL="openai/gpt-oss-120b"
 
 # Provide your API Key
 export GROQ_API_KEY="gsk_your_api_key_here..."

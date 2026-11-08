@@ -130,37 +130,38 @@ func getModelOptions(provider string) []huh.Option[string] {
 	switch provider {
 	case "anthropic":
 		return []huh.Option[string]{
-			huh.NewOption("Claude 3.7 Sonnet (Latest Flagship)", "anthropic/claude-3-7-sonnet-latest"),
-			huh.NewOption("Claude 3.5 Haiku (Fast & Lightweight)", "anthropic/claude-3-5-haiku-latest"),
-			huh.NewOption("Claude 3.5 Sonnet (Previous Standard)", "anthropic/claude-3-5-sonnet-latest"),
+			huh.NewOption("Claude Sonnet 5.5 (Recommended Flagship)", "anthropic/claude-sonnet-5-5"),
+			huh.NewOption("Claude Opus 5.5 (Deep Reasoning & Agentic Coding)", "anthropic/claude-opus-5-5"),
+			huh.NewOption("Claude Haiku 5.5 (Ultra-Fast & Lightweight)", "anthropic/claude-haiku-5-5"),
+			huh.NewOption("Claude Fable 5.1 (Long-Horizon Tasks)", "anthropic/claude-fable-5-1"),
 			huh.NewOption("Custom model name...", "custom"),
 		}
 	case "openai":
 		return []huh.Option[string]{
-			huh.NewOption("GPT-4o (Omni Flagship)", "openai/gpt-4o"),
-			huh.NewOption("GPT-4o Mini (Fast & Cost-Effective)", "openai/gpt-4o-mini"),
-			huh.NewOption("o3-mini (Reasoning Model)", "openai/o3-mini"),
+			huh.NewOption("GPT-6.1 Sol (Recommended High-Performance)", "openai/gpt-6.1-sol"),
+			huh.NewOption("GPT-6 Astra (Frontier Flagship)", "openai/gpt-6-astra"),
+			huh.NewOption("GPT-6 Luna (Fast & Cost-Optimized)", "openai/gpt-6-luna"),
 			huh.NewOption("Custom model name...", "custom"),
 		}
 	case "groq":
 		return []huh.Option[string]{
-			huh.NewOption("Llama 3.3 70B Versatile (Recommended)", "groq/llama-3.3-70b-versatile"),
-			huh.NewOption("DeepSeek R1 Distill 70B (Reasoning)", "groq/deepseek-r1-distill-llama-70b"),
-			huh.NewOption("Llama 3.1 8B Instant (Ultra-Fast)", "groq/llama-3.1-8b-instant"),
+			huh.NewOption("OpenAI GPT-OSS 120B (Recommended Flagship)", "groq/openai/gpt-oss-120b"),
+			huh.NewOption("OpenAI GPT-OSS 20B (Ultra-Fast ~1000 tps)", "groq/openai/gpt-oss-20b"),
+			huh.NewOption("Llama 3.1 8B Instant (Lightweight)", "groq/llama-3.1-8b-instant"),
 			huh.NewOption("Custom model name...", "custom"),
 		}
 	case "mistral":
 		return []huh.Option[string]{
-			huh.NewOption("Mistral Large (Flagship Multimodal)", "mistral/mistral-large-latest"),
+			huh.NewOption("Mistral Large 4 (Recommended Multimodal)", "mistral/mistral-large-latest"),
 			huh.NewOption("Codestral (Code & SRE Specialist)", "mistral/codestral-latest"),
-			huh.NewOption("Mistral Small (Cost-Effective)", "mistral/mistral-small-latest"),
+			huh.NewOption("Mistral Small 4 (Cost-Effective)", "mistral/mistral-small-latest"),
 			huh.NewOption("Custom model name...", "custom"),
 		}
 	case "ollama":
 		return []huh.Option[string]{
-			huh.NewOption("Llama 3.3 (High Performance)", "ollama/llama3.3"),
 			huh.NewOption("DeepSeek-R1 (Local Reasoning)", "ollama/deepseek-r1"),
-			huh.NewOption("Qwen2.5-Coder (Code Specialist)", "ollama/qwen2.5-coder"),
+			huh.NewOption("Qwen2.5-Coder / Qwen3-Coder (Code Specialist)", "ollama/qwen2.5-coder"),
+			huh.NewOption("Llama 3.3 (General Performance)", "ollama/llama3.3"),
 			huh.NewOption("Custom model name...", "custom"),
 		}
 	default:

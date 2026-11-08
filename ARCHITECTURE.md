@@ -205,11 +205,11 @@ Both `clarctl-go` and `sre-agent/agent` support pluggable AI inference backends 
 
 | Provider | Recommended Default | Popular Alternatives Supported |
 |---|---|---|
-| **Anthropic** | `anthropic/claude-3-7-sonnet-latest` | `claude-3-5-haiku-latest`, `claude-3-5-sonnet-latest`, `claude-3-opus-latest` |
-| **OpenAI** | `openai/gpt-4o` | `gpt-4o-mini`, `o3-mini`, `o1` |
-| **Groq** | `groq/llama-3.3-70b-versatile` | `deepseek-r1-distill-llama-70b`, `llama-3.1-8b-instant`, `openai/gpt-oss-120b` |
-| **Mistral AI** | `mistral/mistral-large-latest` | `codestral-latest`, `mistral-small-latest` |
-| **Ollama** | `ollama/llama3.3` | `deepseek-r1`, `qwen2.5-coder`, `llama3.2` |
+| **Anthropic** | `anthropic/claude-sonnet-5-5` | `claude-opus-5-5`, `claude-haiku-5-5`, `claude-fable-5-1` |
+| **OpenAI** | `openai/gpt-6.1-sol` | `gpt-6-astra`, `gpt-6-luna` |
+| **Groq** | `groq/openai/gpt-oss-120b` | `openai/gpt-oss-20b`, `llama-3.1-8b-instant` |
+| **Mistral AI** | `mistral/mistral-large-latest` | `codestral-latest`, `mistral-small-latest` (Small 4) |
+| **Ollama** | `ollama/llama3.3` | `deepseek-r1`, `qwen2.5-coder` / `qwen3-coder` |
 
 ### How Users Configure Models:
 * **Runtime CLI Flags:** Override on the fly via `clarctl scan --model <name> --provider <provider>` (or `-m` / `-p`).

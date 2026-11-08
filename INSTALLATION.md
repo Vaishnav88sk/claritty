@@ -62,7 +62,7 @@ data:
   CLARITTY_CLUSTER_NAME: "production-us-east"       # UNIQUE name for this K8s cluster
   CLARITTY_HUB_URL: "http://<your-hub-ip>:8822"     # IP or Domain of your Hub Server
   LLM_PROVIDER: "groq"
-  LLM_MODEL: "llama-3.3-70b-versatile"
+  LLM_MODEL: "openai/gpt-oss-120b"
   SCAN_INTERVAL_SECS: "300"
 ```
 

@@ -29,9 +29,9 @@ type Config struct {
 func DefaultModelForProvider(provider string) string {
 	switch strings.ToLower(provider) {
 	case "anthropic":
-		return "claude-3-7-sonnet-latest"
+		return "claude-sonnet-5-5"
 	case "openai":
-		return "gpt-4o"
+		return "gpt-6.1-sol"
 	case "mistral":
 		return "mistral-large-latest"
 	case "ollama":
@@ -39,7 +39,7 @@ func DefaultModelForProvider(provider string) string {
 	case "groq":
 		fallthrough
 	default:
-		return "llama-3.3-70b-versatile"
+		return "openai/gpt-oss-120b"
 	}
 }
 

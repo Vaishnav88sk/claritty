@@ -80,9 +80,9 @@ func ClarittyDir() string {
 func DefaultModelForProvider(provider string) string {
 	switch strings.ToLower(provider) {
 	case "anthropic":
-		return "anthropic/claude-3-7-sonnet-latest"
+		return "anthropic/claude-sonnet-5-5"
 	case "openai":
-		return "openai/gpt-4o"
+		return "openai/gpt-6.1-sol"
 	case "mistral":
 		return "mistral/mistral-large-latest"
 	case "ollama":
@@ -90,7 +90,7 @@ func DefaultModelForProvider(provider string) string {
 	case "groq":
 		fallthrough
 	default:
-		return "groq/llama-3.3-70b-versatile"
+		return "groq/openai/gpt-oss-120b"
 	}
 }
 

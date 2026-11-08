@@ -17,8 +17,8 @@ func TestUpdateConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("updateConfig failed on fresh config: %v", err)
 	}
-	if model != "groq/llama-3.3-70b-versatile" {
-		t.Errorf("Expected groq/llama-3.3-70b-versatile, got %s", model)
+	if model != "groq/openai/gpt-oss-120b" {
+		t.Errorf("Expected groq/openai/gpt-oss-120b, got %s", model)
 	}
 
 	// Verify file was written and read it
@@ -77,8 +77,8 @@ func TestUpdateConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("updateConfig failed on openai: %v", err)
 	}
-	if model != "openai/gpt-4o" {
-		t.Errorf("Expected openai/gpt-4o, got %s", model)
+	if model != "openai/gpt-6.1-sol" {
+		t.Errorf("Expected openai/gpt-6.1-sol, got %s", model)
 	}
 
 	// Test 4: Anthropic provider
@@ -86,8 +86,8 @@ func TestUpdateConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("updateConfig failed on anthropic: %v", err)
 	}
-	if model != "anthropic/claude-3-7-sonnet-latest" {
-		t.Errorf("Expected anthropic/claude-3-7-sonnet-latest, got %s", model)
+	if model != "anthropic/claude-sonnet-5-5" {
+		t.Errorf("Expected anthropic/claude-sonnet-5-5, got %s", model)
 	}
 
 	// Test 5: Ollama provider
@@ -100,15 +100,15 @@ func TestUpdateConfig(t *testing.T) {
 	}
 
 	// Test 6: Custom model specification
-	customModel, err := updateConfig(envPath, "anthropic", "test-anthropic-key", "claude-3-7-sonnet-latest")
+	customModel, err := updateConfig(envPath, "anthropic", "test-anthropic-key", "claude-opus-5-5")
 	if err != nil {
 		t.Fatalf("updateConfig failed on custom model: %v", err)
 	}
-	if customModel != "claude-3-7-sonnet-latest" {
-		t.Errorf("Expected claude-3-7-sonnet-latest, got %s", customModel)
+	if customModel != "claude-opus-5-5" {
+		t.Errorf("Expected claude-opus-5-5, got %s", customModel)
 	}
 	envMapCustom, _ := godotenv.Read(envPath)
-	if envMapCustom["LLM_MODEL"] != "claude-3-7-sonnet-latest" {
+	if envMapCustom["LLM_MODEL"] != "claude-opus-5-5" {
 		t.Errorf("Expected custom model in .env, got %s", envMapCustom["LLM_MODEL"])
 	}
 }
