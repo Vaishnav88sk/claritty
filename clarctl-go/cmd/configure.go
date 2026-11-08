@@ -78,7 +78,28 @@ var configureCmd = &cobra.Command{
 		apiKey = strings.TrimSpace(apiKey)
 		envPath := filepath.Join(config.ClarittyDir(), ".env")
 
-		model, err := updateConfig(envPath, provider, apiKey)
+		defaultModel := config.DefaultModelForProvider(provider)
+		selectedModel := defaultModel
+
+		form3 := huh.NewForm(
+			huh.NewGroup(
+				huh.NewInput().
+					Title("Choose LLM Model").
+					Description(fmt.Sprintf("Press Enter to use recommended default (%s) or type any custom model", defaultModel)).
+					Value(&selectedModel),
+			),
+		)
+
+		if err := form3.Run(); err != nil {
+			return fmt.Errorf("configuration cancelled: %w", err)
+		}
+
+		selectedModel = strings.TrimSpace(selectedModel)
+		if selectedModel == "" {
+			selectedModel = defaultModel
+		}
+
+		model, err := updateConfig(envPath, provider, apiKey, selectedModel)
 		if err != nil {
 			return err
 		}
@@ -88,27 +109,27 @@ var configureCmd = &cobra.Command{
 	},
 }
 
-// updateConfig updates the .env file with the selected provider, generating default models.
-func updateConfig(envPath, provider, apiKey string) (string, error) {
+// updateConfig updates the .env file with the selected provider, generating default or custom models.
+func updateConfig(envPath, provider, apiKey string, customModel ...string) (string, error) {
 	var envKey string
-	var defaultModel string
+	defaultModel := config.DefaultModelForProvider(provider)
 
 	switch provider {
 	case "groq":
 		envKey = "GROQ_API_KEY"
-		defaultModel = "groq/llama-3.3-70b-versatile"
 	case "mistral":
 		envKey = "MISTRAL_API_KEY"
-		defaultModel = "mistral/mistral-large-latest"
 	case "openai":
 		envKey = "OPENAI_API_KEY"
-		defaultModel = "openai/gpt-4o"
 	case "anthropic":
 		envKey = "ANTHROPIC_API_KEY"
-		defaultModel = "anthropic/claude-3-5-sonnet-latest"
 	case "ollama":
 		envKey = "OLLAMA_HOST"
-		defaultModel = "ollama/llama3.1"
+	}
+
+	modelToUse := defaultModel
+	if len(customModel) > 0 && strings.TrimSpace(customModel[0]) != "" {
+		modelToUse = strings.TrimSpace(customModel[0])
 	}
 
 	clarittyDir := filepath.Dir(envPath)
@@ -122,12 +143,12 @@ func updateConfig(envPath, provider, apiKey string) (string, error) {
 	}
 
 	envMap["LLM_PROVIDER"] = provider
-	envMap["LLM_MODEL"] = defaultModel
+	envMap["LLM_MODEL"] = modelToUse
 	envMap[envKey] = apiKey
 
 	if err := godotenv.Write(envMap, envPath); err != nil {
 		return "", fmt.Errorf("failed to write configuration: %w", err)
 	}
 
-	return defaultModel, nil
+	return modelToUse, nil
 }

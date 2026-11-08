@@ -95,7 +95,20 @@ func TestUpdateConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("updateConfig failed on ollama: %v", err)
 	}
-	if model != "ollama/llama3.1" {
-		t.Errorf("Expected ollama/llama3.1, got %s", model)
+	if model != "ollama/llama3.3" {
+		t.Errorf("Expected ollama/llama3.3, got %s", model)
+	}
+
+	// Test 6: Custom model specification
+	customModel, err := updateConfig(envPath, "anthropic", "test-anthropic-key", "claude-3-7-sonnet-latest")
+	if err != nil {
+		t.Fatalf("updateConfig failed on custom model: %v", err)
+	}
+	if customModel != "claude-3-7-sonnet-latest" {
+		t.Errorf("Expected claude-3-7-sonnet-latest, got %s", customModel)
+	}
+	envMapCustom, _ := godotenv.Read(envPath)
+	if envMapCustom["LLM_MODEL"] != "claude-3-7-sonnet-latest" {
+		t.Errorf("Expected custom model in .env, got %s", envMapCustom["LLM_MODEL"])
 	}
 }

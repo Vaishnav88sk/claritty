@@ -77,11 +77,12 @@ if [ ! -f "$CLARITTY_DIR/.env" ]; then
   cat <<EOF > "$CLARITTY_DIR/.env"
 # Claritty AI-SRE Configuration
 # Get a free key at https://console.groq.com
+# LLM_MODEL can be left empty for provider defaults or customized to any model
 LLM_PROVIDER=groq
 LLM_MODEL=groq/llama-3.3-70b-versatile
-# LLM_MODEL=meta-llama/llama-4-scout-17b-16e-instruct
 GROQ_API_KEY=your_groq_api_key_here
 # OPENAI_API_KEY=
+# ANTHROPIC_API_KEY=
 # MISTRAL_API_KEY=
 EOF
   echo "Created configuration file: $CLARITTY_DIR/.env"

@@ -14,8 +14,9 @@ data:
   CLARITTY_CLUSTER_NAME: "my-cluster"
   # URL of the external hub server
   CLARITTY_HUB_URL: "http://YOUR_HUB_SERVER:8822"
-  # LLM provider settings
+  # LLM provider settings (groq, openai, anthropic, mistral, ollama)
   LLM_PROVIDER: "groq"
+  # LLM_MODEL: leave empty to use recommended default or set any model
   LLM_MODEL: "llama-3.3-70b-versatile"
   # Scan interval in seconds (default: 300 = 5 minutes)
   SCAN_INTERVAL_SECS: "300"
@@ -31,4 +32,6 @@ type: Opaque
 stringData:
   GROQ_API_KEY: "your_groq_api_key_here"
   # OPENAI_API_KEY: ""
+  # ANTHROPIC_API_KEY: ""
+  # MISTRAL_API_KEY: ""
   # CLARITTY_HUB_API_KEY: "optional_shared_secret"

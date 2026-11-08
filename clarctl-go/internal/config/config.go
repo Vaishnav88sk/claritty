@@ -76,6 +76,24 @@ func ClarittyDir() string {
 	return filepath.Join(home, ".claritty")
 }
 
+// DefaultModelForProvider returns the recommended default model for a given provider.
+func DefaultModelForProvider(provider string) string {
+	switch strings.ToLower(provider) {
+	case "anthropic":
+		return "anthropic/claude-3-5-sonnet-latest"
+	case "openai":
+		return "openai/gpt-4o"
+	case "mistral":
+		return "mistral/mistral-large-latest"
+	case "ollama":
+		return "ollama/llama3.3"
+	case "groq":
+		fallthrough
+	default:
+		return "groq/llama-3.3-70b-versatile"
+	}
+}
+
 // Load reads config from ~/.claritty/.env (preferred) then local .env,
 // then falls back to environment variables and sensible defaults.
 func Load() (*Config, error) {
@@ -88,10 +106,13 @@ func Load() (*Config, error) {
 	_ = godotenv.Load(filepath.Join(clarittyDir, ".env"))
 	_ = godotenv.Load() // local .env if present
 
+	provider := getenv("LLM_PROVIDER", "groq")
+	defaultModel := DefaultModelForProvider(provider)
+
 	cfg := &Config{
 		// LLM
-		LLMProvider:    getenv("LLM_PROVIDER", "groq"),
-		LLMModel:       getenv("LLM_MODEL", "groq/llama-3.3-70b-versatile"),
+		LLMProvider:    provider,
+		LLMModel:       getenv("LLM_MODEL", defaultModel),
 		LLMTemperature: getenvFloat("LLM_TEMPERATURE", 0.1),
 		LLMMaxTokens:   getenvInt("LLM_MAX_TOKENS", 2048),
 

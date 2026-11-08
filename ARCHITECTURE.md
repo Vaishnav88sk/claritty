@@ -199,12 +199,21 @@ Claritty employs strict algorithmic guardrails to prevent LLM hallucinations:
 
 ---
 
-## 6. Supported LLM Providers
+## 6. Supported LLM Providers & Dynamic Model Selection
 
-Both `clarctl-go` and `sre-agent/agent` support pluggable AI inference backends:
-* **Groq:** Ultra-fast cloud inference (recommended for sub-second CLI triage).
-* **Mistral AI:** High-accuracy reasoning.
-* **OpenAI:** GPT-4o / GPT-4o-mini support.
-* **Anthropic:** Claude 3.5 Sonnet (`claude-3-5-sonnet-latest`) support.
-* **Ollama:** 100% air-gapped, local private cluster inference.
+Both `clarctl-go` and `sre-agent/agent` support pluggable AI inference backends with **100% configurable, non-locked model selection**:
+
+| Provider | Recommended Default | Common Alternatives Supported |
+|---|---|---|
+| **Groq** | `groq/llama-3.3-70b-versatile` | `deepseek-r1-distill-llama-70b`, `llama-3.1-8b-instant` |
+| **Anthropic** | `anthropic/claude-3-5-sonnet-latest` | `claude-3-7-sonnet-latest`, `claude-3-5-haiku-latest`, `claude-3-opus-latest` |
+| **OpenAI** | `openai/gpt-4o` | `gpt-4o-mini`, `o3-mini`, `o1` |
+| **Mistral AI** | `mistral/mistral-large-latest` | `codestral-latest`, `mistral-small-latest` |
+| **Ollama** | `ollama/llama3.3` | `llama3.2`, `qwen2.5-coder`, `deepseek-r1` |
+
+### How Users Configure Models:
+* **Interactive CLI Wizard (`clarctl configure`):** Prompts for provider, credentials, and allows pressing Enter to use the recommended default or typing any custom model name.
+* **Environment Variable / `.env`:** Set `LLM_MODEL="<any-model-name>"` alongside `LLM_PROVIDER="<provider>"`.
+* **In-Cluster Agent:** Set `LLM_MODEL` in [`sre-agent/deploy/agent-configmap.yaml`](file:///home/vaishnavsk/claritty/sre-agent/deploy/agent-configmap.yaml).
+* **Automatic Fallbacks:** If `LLM_MODEL` is left empty, Claritty dynamically applies the modern recommended default specifically for the active provider.
 

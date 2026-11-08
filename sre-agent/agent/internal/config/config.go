@@ -25,14 +25,33 @@ type Config struct {
 	ListenAddr      string
 }
 
+// DefaultModelForProvider returns the recommended default model for a given provider.
+func DefaultModelForProvider(provider string) string {
+	switch strings.ToLower(provider) {
+	case "anthropic":
+		return "claude-3-5-sonnet-latest"
+	case "openai":
+		return "gpt-4o"
+	case "mistral":
+		return "mistral-large-latest"
+	case "ollama":
+		return "llama3.3"
+	case "groq":
+		fallthrough
+	default:
+		return "llama-3.3-70b-versatile"
+	}
+}
+
 // Load reads configuration from environment variables.
 func Load() *Config {
+	provider := getEnv("LLM_PROVIDER", "groq")
 	cfg := &Config{
 		ClusterName:     getEnv("CLARITTY_CLUSTER_NAME", "default-cluster"),
 		HubURL:          getEnv("CLARITTY_HUB_URL", "http://localhost:8822"),
 		HubAPIKey:       getEnv("CLARITTY_HUB_API_KEY", ""),
-		LLMProvider:     getEnv("LLM_PROVIDER", "groq"),
-		LLMModel:        getEnv("LLM_MODEL", "llama-3.3-70b-versatile"),
+		LLMProvider:     provider,
+		LLMModel:        getEnv("LLM_MODEL", DefaultModelForProvider(provider)),
 		GroqAPIKey:      getEnv("GROQ_API_KEY", ""),
 		OpenAIAPIKey:    getEnv("OPENAI_API_KEY", ""),
 		MistralAPIKey:   getEnv("MISTRAL_API_KEY", ""),
