@@ -112,9 +112,11 @@ func (p *Pipeline) RunScan(ctx context.Context) (*incident.Report, error) {
 
 // runPipeline executes the sequential 6-stage agent pipeline.
 func (p *Pipeline) runPipeline(ctx context.Context) (*incident.Report, error) {
+	ec := incident.NewEvidenceCollector()
+
 	// ── Stage 1: Triage ────────────────────────────────────────────────────
 	fmt.Println("  🔍 Stage 1/6: Triage Agent — scanning cluster...")
-	triageData, err := p.collectTriageData(ctx)
+	triageData, err := p.collectTriageData(ctx, ec)
 	if err != nil {
 		return nil, fmt.Errorf("triage data collection: %w", err)
 	}
@@ -132,7 +134,7 @@ func (p *Pipeline) runPipeline(ctx context.Context) (*incident.Report, error) {
 
 	// ── Stage 3: Logs ──────────────────────────────────────────────────────
 	fmt.Println("  📋 Stage 3/6: Log Agent — mining error patterns...")
-	logData := p.collectLogData(ctx, truncate(triageSummary, 1000))
+	logData := p.collectLogData(ctx, truncate(triageSummary, 1000), ec)
 	logSummary, err := p.callAgent(ctx, buildLogPrompt(
 		truncate(triageSummary, 1000),
 		truncate(metricsSummary, 1000),
@@ -175,12 +177,13 @@ func (p *Pipeline) runPipeline(ctx context.Context) (*incident.Report, error) {
 		truncate(logSummary, 800),
 		truncate(infraSummary, 800),
 		truncate(runbookSummary, 1000),
+		ec,
 	))
 	if err != nil {
 		return nil, fmt.Errorf("commander agent: %w", err)
 	}
 
-	return parseReport(finalJSON, p.cfg.LLMModel)
+	return parseReport(finalJSON, p.cfg.LLMModel, ec)
 }
 
 // callAgent sends a prompt to the LLM and returns the text response.
@@ -204,7 +207,7 @@ type triageCollectedData struct {
 	Summaries []k8s.NamespaceSummary
 }
 
-func (p *Pipeline) collectTriageData(ctx context.Context) (*triageCollectedData, error) {
+func (p *Pipeline) collectTriageData(ctx context.Context, ec *incident.EvidenceCollector) (*triageCollectedData, error) {
 	allPods, err := p.k8sCli.ListPods(ctx, p.cfg.Namespaces)
 	if err != nil {
 		return nil, err
@@ -216,6 +219,26 @@ func (p *Pipeline) collectTriageData(ctx context.Context) (*triageCollectedData,
 		isHealthy := pod.Phase == "Running" && pod.Ready && pod.Restarts <= int32(p.cfg.RestartWarningCnt)
 		if !isHealthy {
 			problemPods = append(problemPods, pod)
+
+			// Record normalized pod resource evidence
+			if ec != nil {
+				sev := incident.EvidenceSeverityWarning
+				if pod.Phase == "Failed" || pod.Restarts > 5 || strings.Contains(strings.ToLower(pod.Message), "crash") {
+					sev = incident.EvidenceSeverityCritical
+				}
+				detail := ""
+				if pod.Message != "" {
+					detail = " - " + pod.Message
+				}
+				ec.Add(incident.Evidence{
+					Source:    "kubernetes",
+					Type:      incident.EvidenceTypeResource,
+					Resource:  fmt.Sprintf("pod/%s/%s", pod.Namespace, pod.Name),
+					Severity:  sev,
+					Content:   fmt.Sprintf("Pod %s in namespace %s is %s (restarts: %d, ready: %v)%s", pod.Name, pod.Namespace, pod.Phase, pod.Restarts, pod.Ready, detail),
+					Relevance: 0.90,
+				})
+			}
 		}
 	}
 
@@ -225,7 +248,39 @@ func (p *Pipeline) collectTriageData(ctx context.Context) (*triageCollectedData,
 	}
 
 	events, _ := p.k8sCli.GetWarningEvents(ctx, p.cfg.Namespaces, 20) // Limit to 20 most recent warnings
+	if ec != nil {
+		for _, ev := range events {
+			ec.Add(incident.Evidence{
+				Source:    "k8s-events",
+				Type:      incident.EvidenceTypeEvent,
+				Resource:  ev.Object,
+				Severity:  incident.EvidenceSeverityWarning,
+				Content:   fmt.Sprintf("Warning event %s: %s (count: %d)", ev.Reason, ev.Message, ev.Count),
+				Relevance: 0.85,
+			})
+		}
+	}
+
 	nodes, _ := p.k8sCli.GetNodeHealth(ctx)
+	if ec != nil {
+		for _, n := range nodes {
+			if !n.Ready || n.Cordoned {
+				nodeStatus := "NotReady"
+				if n.Cordoned {
+					nodeStatus = "Cordoned"
+				}
+				ec.Add(incident.Evidence{
+					Source:    "k8s-nodes",
+					Type:      incident.EvidenceTypeResource,
+					Resource:  fmt.Sprintf("node/%s", n.Name),
+					Severity:  incident.EvidenceSeverityCritical,
+					Content:   fmt.Sprintf("Node %s status is %s", n.Name, nodeStatus),
+					Relevance: 0.95,
+				})
+			}
+		}
+	}
+
 	summaries, _ := p.k8sCli.GetNamespaceSummaries(ctx, p.cfg.Namespaces)
 
 	return &triageCollectedData{
@@ -233,7 +288,7 @@ func (p *Pipeline) collectTriageData(ctx context.Context) (*triageCollectedData,
 	}, nil
 }
 
-func (p *Pipeline) collectLogData(ctx context.Context, triage string) string {
+func (p *Pipeline) collectLogData(ctx context.Context, triage string, ec *incident.EvidenceCollector) string {
 	// Parse triage for problem pod names (best-effort)
 	var logs strings.Builder
 	for _, pod := range extractMentionedPods(triage) {
@@ -241,15 +296,74 @@ func (p *Pipeline) collectLogData(ctx context.Context, triage string) string {
 			log, err := p.k8sCli.GetPodLogs(ctx, ns, pod, "", int64(p.cfg.PodLogTailLines), false)
 			if err == nil && log != "" {
 				fmt.Fprintf(&logs, "=== Logs for %s/%s ===\n%s\n", ns, pod, truncate(log, 2000))
+				mineLogEvidence(log, ns, pod, ec)
 			}
 			// Also fetch previous container logs for crash loop detection
 			prevLog, err := p.k8sCli.GetPodLogs(ctx, ns, pod, "", int64(p.cfg.PodLogTailLines), true)
 			if err == nil && prevLog != "" {
 				fmt.Fprintf(&logs, "=== PREVIOUS Logs for %s/%s ===\n%s\n", ns, pod, truncate(prevLog, 1000))
+				mineLogEvidence(prevLog, ns, pod, ec)
 			}
 		}
 	}
 	return logs.String()
+}
+
+var logErrorKeywords = []string{
+	"panic:",
+	"fatal:",
+	"fatal error",
+	"exception",
+	"oomkilled",
+	"out of memory",
+	"connection refused",
+	"dial tcp",
+	"broken pipe",
+	"context deadline exceeded",
+	"error:",
+	"failed to",
+	"back-off",
+	"sigterm",
+	"exit code",
+}
+
+func mineLogEvidence(logContent, ns, pod string, ec *incident.EvidenceCollector) {
+	if ec == nil || logContent == "" {
+		return
+	}
+	lines := strings.Split(logContent, "\n")
+	added := 0
+	seen := make(map[string]bool)
+
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || len(trimmed) < 10 {
+			continue
+		}
+		lower := strings.ToLower(trimmed)
+		matched := false
+		for _, kw := range logErrorKeywords {
+			if strings.Contains(lower, kw) {
+				matched = true
+				break
+			}
+		}
+		if matched && !seen[trimmed] {
+			seen[trimmed] = true
+			ec.Add(incident.Evidence{
+				Source:    "logs",
+				Type:      incident.EvidenceTypeLog,
+				Resource:  fmt.Sprintf("pod/%s/%s", ns, pod),
+				Severity:  incident.EvidenceSeverityCritical,
+				Content:   fmt.Sprintf("Log error: %s", truncate(trimmed, 180)),
+				Relevance: 0.92,
+			})
+			added++
+			if added >= 3 {
+				break
+			}
+		}
+	}
 }
 
 // ─── Prompt builders ─────────────────────────────────────────────────────────
@@ -399,15 +513,33 @@ Output a structured remediation plan with exact executable kubectl commands.`,
 	)
 }
 
-func buildCommanderPrompt(triage, metrics, logs, infra, runbook string) string {
+func buildCommanderPrompt(triage, metrics, logs, infra, runbook string, ec *incident.EvidenceCollector) string {
+	evidenceText := "(No explicit telemetry evidence recorded)"
+	if ec != nil {
+		evidenceText = ec.FormatForPrompt()
+	}
+
 	return fmt.Sprintf(`You are the Incident Commander. Synthesize all findings into a final incident report.
 Output ONLY valid JSON — no markdown, no explanation, no code fences.
+
+COLLECTED EVIDENCE:
+%s
 
 TRIAGE: %s
 METRICS: %s
 LOGS: %s
 INFRA: %s
 RUNBOOK PLAN: %s
+
+CRITICAL RULES FOR EVIDENCE-BACKED ROOT CAUSE ANALYSIS (RCA):
+1. Every conclusion in "conclusions" MUST be backed by specific evidence ID(s) from the COLLECTED EVIDENCE above (e.g. ["E1", "E2"]).
+2. Distinguish evidence from reasoning:
+   - "statement": the factual deduction (e.g. "Redis has no available endpoints")
+   - "evidence_ids": list of valid evidence IDs from COLLECTED EVIDENCE that directly prove this statement
+   - "reasoning": how the evidence leads to this conclusion
+3. The AI MUST NOT present unsupported conclusions as facts. If a potential cause or hypothesis is suspected but lacks direct evidence IDs, you MUST place it under "hypotheses", NOT in "conclusions".
+4. In "root_cause", provide a concise explanation citing the key evidence IDs (e.g. "Redis has no available endpoints [E1, E2]").
+5. If the cluster is healthy, set has_issue=false and severity=SEV4.
 
 CRITICAL RULES FOR remediation_plan:
 1. Each command MUST be an executable kubectl command that CHANGES state (fixes the problem).
@@ -427,17 +559,31 @@ Output EXACTLY this JSON structure:
   "category": "crashloop|oom|high_cpu|high_memory|image_pull|pending|node_not_ready|disk_pressure|error_rate|latency|healthy",
   "affected_namespaces": ["ns1"],
   "affected_services": [{"service_name": "x", "namespace": "y", "impact_level": "down|degraded|at_risk"}],
-  "root_cause": "3-5 sentence explanation of the actual root cause",
+  "root_cause": "concise explanation of the root cause citing evidence IDs",
+  "conclusions": [
+    {
+      "statement": "Redis has no available endpoints",
+      "evidence_ids": ["E1", "E2"],
+      "reasoning": "Endpoint list is empty while consumer logs report connection refused"
+    }
+  ],
+  "hypotheses": [
+    {
+      "statement": "Upstream network latency may have delayed heartbeat registration",
+      "reason": "Inter-node latency telemetry was not directly observable",
+      "validation_steps": ["ping target node from caller pod"]
+    }
+  ],
   "contributing_factors": ["factor1", "factor2"],
   "confidence_score": 85,
   "remediation_plan": [
-    {"step_number": 1, "description": "Force delete the crashing pod so Kubernetes recreates it cleanly", "command": "kubectl delete pod crashloop-demo -n default --grace-period=0 --force", "is_destructive": true, "is_automated": true},
-    {"step_number": 2, "description": "Fix the invalid image tag and delete the stuck pod", "command": "kubectl delete pod badimage-demo -n default --grace-period=0 --force", "is_destructive": true, "is_automated": true}
+    {"step_number": 1, "description": "Force delete the crashing pod so Kubernetes recreates it cleanly", "command": "kubectl delete pod crashloop-demo -n default --grace-period=0 --force", "is_destructive": true, "is_automated": true}
   ],
   "runbook_used": "crash_loop.yaml"
 }
 
 Only report CONFIRMED issues with real affected pod names from the triage data. If cluster is healthy, set has_issue=false and severity=SEV4.`,
+		truncate(evidenceText, 2500),
 		truncate(triage, 1000), truncate(metrics, 700),
 		truncate(logs, 700), truncate(infra, 700), truncate(runbook, 800),
 	)
@@ -460,7 +606,17 @@ type agentOutput struct {
 	RootCause           string   `json:"root_cause"`
 	ContributingFactors []string `json:"contributing_factors"`
 	ConfidenceScore     int      `json:"confidence_score"`
-	RemediationPlan     []struct {
+	Conclusions         []struct {
+		Statement   string   `json:"statement"`
+		EvidenceIDs []string `json:"evidence_ids"`
+		Reasoning   string   `json:"reasoning"`
+	} `json:"conclusions"`
+	Hypotheses []struct {
+		Statement       string   `json:"statement"`
+		Reason          string   `json:"reason"`
+		ValidationSteps []string `json:"validation_steps"`
+	} `json:"hypotheses"`
+	RemediationPlan []struct {
 		StepNumber  int    `json:"step_number"`
 		Description string `json:"description"`
 		Command     string `json:"command"`
@@ -472,7 +628,7 @@ type agentOutput struct {
 
 var jsonBlockRe = regexp.MustCompile(`(?s)\{.*\}`)
 
-func parseReport(raw, llmModel string) (*incident.Report, error) {
+func parseReport(raw, llmModel string, ec *incident.EvidenceCollector) (*incident.Report, error) {
 	cleaned := stripMarkdownFences(raw)
 	match := jsonBlockRe.FindString(cleaned)
 	if match == "" {
@@ -538,6 +694,89 @@ func parseReport(raw, llmModel string) (*incident.Report, error) {
 			Status:      "PENDING",
 		})
 	}
+
+	// ─── Process Evidence-Backed Conclusions & Guardrails ───────────────────────
+	seenEvidence := make(map[string]bool)
+
+	for _, c := range ao.Conclusions {
+		var validIDs []string
+		for _, id := range c.EvidenceIDs {
+			id = strings.TrimSpace(id)
+			if id != "" {
+				validIDs = append(validIDs, id)
+			}
+		}
+
+		// Acceptance criterion: Unsupported conclusions are clearly marked as hypotheses.
+		// The AI must not be allowed to present unsupported conclusions as facts.
+		if len(validIDs) == 0 {
+			r.Hypotheses = append(r.Hypotheses, incident.Hypothesis{
+				Statement: c.Statement,
+				Reason:    "Demoted from conclusion: unsupported by direct telemetry evidence IDs",
+			})
+			continue
+		}
+
+		// If an evidence collector is available, verify that cited IDs exist in telemetry
+		if ec != nil && len(ec.All()) > 0 {
+			var verifiedIDs []string
+			for _, id := range validIDs {
+				if ev, ok := ec.GetByID(id); ok {
+					verifiedIDs = append(verifiedIDs, id)
+					if !seenEvidence[id] {
+						seenEvidence[id] = true
+						r.Evidence = append(r.Evidence, ev)
+					}
+				}
+			}
+
+			if len(verifiedIDs) == 0 {
+				r.Hypotheses = append(r.Hypotheses, incident.Hypothesis{
+					Statement: c.Statement,
+					Reason:    fmt.Sprintf("Demoted from conclusion: cited evidence IDs (%s) not found in collected telemetry", strings.Join(validIDs, ", ")),
+				})
+				continue
+			}
+			validIDs = verifiedIDs
+		}
+
+		r.Conclusions = append(r.Conclusions, incident.Conclusion{
+			Statement:   c.Statement,
+			EvidenceIDs: validIDs,
+			Reasoning:   c.Reasoning,
+		})
+	}
+
+	// Add parsed hypotheses
+	for _, h := range ao.Hypotheses {
+		r.Hypotheses = append(r.Hypotheses, incident.Hypothesis{
+			Statement:       h.Statement,
+			Reason:          h.Reason,
+			ValidationSteps: h.ValidationSteps,
+		})
+	}
+
+	// If conclusions didn't reference specific evidence but collector has evidence,
+	// populate top evidence to ensure evidence context is preserved.
+	if len(r.Evidence) == 0 && ec != nil {
+		allEv := ec.All()
+		if len(allEv) > 10 {
+			r.Evidence = allEv[:10]
+		} else {
+			r.Evidence = allEv
+		}
+	}
+
+	// Fallback: If RootCause is empty but Conclusions exist, populate RootCause
+	if r.RootCause == "" && len(r.Conclusions) > 0 {
+		c := r.Conclusions[0]
+		if len(c.EvidenceIDs) > 0 {
+			r.RootCause = fmt.Sprintf("%s [%s]", c.Statement, strings.Join(c.EvidenceIDs, ", "))
+		} else {
+			r.RootCause = c.Statement
+		}
+	}
+
 	return r, nil
 }
 

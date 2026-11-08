@@ -62,6 +62,9 @@ type Report struct {
 	RootCause           string            `json:"root_cause"`
 	ContributingFactors []string          `json:"contributing_factors"`
 	ConfidenceScore     int               `json:"confidence_score"`
+	Evidence            []Evidence        `json:"evidence,omitempty"`
+	Conclusions         []Conclusion      `json:"conclusions,omitempty"`
+	Hypotheses          []Hypothesis      `json:"hypotheses,omitempty"`
 	RemediationPlan     []RemediationStep `json:"remediation_plan"`
 	RunbookUsed         string            `json:"runbook_used"`
 	LLMModel            string            `json:"llm_model"`

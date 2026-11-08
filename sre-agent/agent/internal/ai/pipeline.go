@@ -111,8 +111,10 @@ func (p *Pipeline) RunScan(ctx context.Context) (*incident.Report, error) {
 }
 
 func (p *Pipeline) runPipeline(ctx context.Context) (*incident.Report, error) {
+	ec := incident.NewEvidenceCollector()
+
 	fmt.Println("[agent] Stage 1/6: Triage — collecting cluster state...")
-	triage, err := p.collectTriage(ctx)
+	triage, err := p.collectTriage(ctx, ec)
 	if err != nil {
 		return nil, fmt.Errorf("triage: %w", err)
 	}
@@ -148,16 +150,17 @@ func (p *Pipeline) runPipeline(ctx context.Context) (*incident.Report, error) {
 		truncate(logSummary, 700),
 		truncate(infraSummary, 700),
 		truncate(runbookSummary, 800),
+		ec,
 	))
 	if err != nil {
 		return nil, fmt.Errorf("commander: %w", err)
 	}
 
-	return parseReport(rawJSON, p.cfg.ClusterName, fullModelName(p.cfg))
+	return parseReport(rawJSON, p.cfg.ClusterName, fullModelName(p.cfg), ec)
 }
 
 // collectTriage gathers cluster data and builds the triage prompt input.
-func (p *Pipeline) collectTriage(ctx context.Context) (string, error) {
+func (p *Pipeline) collectTriage(ctx context.Context, ec *incident.EvidenceCollector) (string, error) {
 	snap, pods, err := p.k8sCli.CollectSnapshot(ctx, p.cfg.Namespaces)
 	if err != nil {
 		return "", err
@@ -174,14 +177,50 @@ func (p *Pipeline) collectTriage(ctx context.Context) (string, error) {
 		if pod.Restarts > 2 || pod.Reason != "" || pod.Phase == "Pending" || pod.Phase == "Failed" {
 			fmt.Fprintf(&sb, "  Pod=%s NS=%s Phase=%s Reason=%s Restarts=%d Node=%s\n",
 				pod.Name, pod.Namespace, pod.Phase, pod.Reason, pod.Restarts, pod.Node)
+
+			if ec != nil {
+				sev := incident.EvidenceSeverityWarning
+				if pod.Restarts > 5 || pod.Phase == "Failed" || pod.Reason == "CrashLoopBackOff" || pod.Reason == "OOMKilled" {
+					sev = incident.EvidenceSeverityCritical
+				}
+				ec.Add(incident.Evidence{
+					Source:    "kubernetes",
+					Type:      incident.EvidenceTypeResource,
+					Resource:  fmt.Sprintf("pod/%s/%s", pod.Namespace, pod.Name),
+					Severity:  sev,
+					Content:   fmt.Sprintf("Pod %s in namespace %s is in %s state (reason: %s, restarts: %d, node: %s)", pod.Name, pod.Namespace, pod.Phase, pod.Reason, pod.Restarts, pod.Node),
+					Relevance: 0.90,
+				})
+			}
+
 			if pod.Logs != "" {
 				fmt.Fprintf(&sb, "  Logs(tail): %s\n", truncate(pod.Logs, 500))
+				if ec != nil {
+					ec.Add(incident.Evidence{
+						Source:    "logs",
+						Type:      incident.EvidenceTypeLog,
+						Resource:  fmt.Sprintf("pod/%s/%s", pod.Namespace, pod.Name),
+						Severity:  incident.EvidenceSeverityCritical,
+						Content:   fmt.Sprintf("Pod logs: %s", truncate(pod.Logs, 150)),
+						Relevance: 0.92,
+					})
+				}
 			}
 		}
 	}
 
 	if events != "" {
 		fmt.Fprintf(&sb, "\nRECENT WARNING EVENTS:\n%s", truncate(events, 1000))
+		if ec != nil {
+			ec.Add(incident.Evidence{
+				Source:    "k8s-events",
+				Type:      incident.EvidenceTypeEvent,
+				Resource:  p.cfg.ClusterName,
+				Severity:  incident.EvidenceSeverityWarning,
+				Content:   fmt.Sprintf("Warning events: %s", truncate(events, 200)),
+				Relevance: 0.85,
+			})
+		}
 	}
 
 	return sb.String(), nil
@@ -264,15 +303,33 @@ CRITICAL RULES:
 Output a structured plan with exact kubectl commands.`, triage, metrics, logs, infra)
 }
 
-func buildCommanderPrompt(triage, metrics, logs, infra, runbook string) string {
+func buildCommanderPrompt(triage, metrics, logs, infra, runbook string, ec *incident.EvidenceCollector) string {
+	evidenceText := "(No telemetry evidence recorded)"
+	if ec != nil {
+		evidenceText = ec.FormatForPrompt()
+	}
+
 	return fmt.Sprintf(`You are the Incident Commander. Synthesize all findings into a final report.
 Output ONLY valid JSON — no markdown, no code fences.
+
+COLLECTED EVIDENCE:
+%s
 
 TRIAGE: %s
 METRICS: %s
 LOGS: %s
 INFRA: %s
 RUNBOOK: %s
+
+CRITICAL RULES FOR EVIDENCE-BACKED ROOT CAUSE ANALYSIS (RCA):
+1. Every conclusion in "conclusions" MUST be backed by specific evidence ID(s) from COLLECTED EVIDENCE (e.g. ["E1", "E2"]).
+2. Distinguish evidence from reasoning:
+   - "statement": the factual deduction (e.g. "Redis has no available endpoints")
+   - "evidence_ids": valid evidence IDs from COLLECTED EVIDENCE proving this statement
+   - "reasoning": how the evidence leads to this conclusion
+3. The AI MUST NOT present unsupported conclusions as facts. Any unverified hypothesis or speculation MUST be placed under "hypotheses", NOT in "conclusions".
+4. In "root_cause", provide a concise explanation citing the key evidence IDs (e.g. "Redis has no available endpoints [E1, E2]").
+5. If the cluster is healthy, set has_issue=false and severity=SEV4.
 
 CRITICAL RULES for remediation_plan:
 1. Commands must CHANGE state — never 'kubectl describe' or 'kubectl get'.
@@ -291,7 +348,21 @@ Output EXACTLY this JSON:
   "affected_services": [
     {"service_name": "pod-name", "namespace": "ns", "impact_level": "down|degraded|at_risk"}
   ],
-  "root_cause": "3-5 sentence explanation",
+  "root_cause": "concise explanation citing evidence IDs",
+  "conclusions": [
+    {
+      "statement": "Redis has no available endpoints",
+      "evidence_ids": ["E1"],
+      "reasoning": "Endpoint list is empty while consumer logs report connection refused"
+    }
+  ],
+  "hypotheses": [
+    {
+      "statement": "Potential upstream network partition",
+      "reason": "Inter-node latency telemetry not observable directly",
+      "validation_steps": ["ping target node"]
+    }
+  ],
   "contributing_factors": ["factor1", "factor2"],
   "confidence_score": 85,
   "remediation_plan": [
@@ -301,7 +372,7 @@ Output EXACTLY this JSON:
 }
 
 If cluster is healthy, set has_issue=false and severity=SEV4.`,
-		triage, metrics, logs, infra, runbook)
+		truncate(evidenceText, 2500), triage, metrics, logs, infra, runbook)
 }
 
 // ─── Parser ───────────────────────────────────────────────────────────────────
@@ -320,7 +391,17 @@ type agentOutput struct {
 	RootCause           string   `json:"root_cause"`
 	ContributingFactors []string `json:"contributing_factors"`
 	ConfidenceScore     int      `json:"confidence_score"`
-	RemediationPlan     []struct {
+	Conclusions         []struct {
+		Statement   string   `json:"statement"`
+		EvidenceIDs []string `json:"evidence_ids"`
+		Reasoning   string   `json:"reasoning"`
+	} `json:"conclusions"`
+	Hypotheses []struct {
+		Statement       string   `json:"statement"`
+		Reason          string   `json:"reason"`
+		ValidationSteps []string `json:"validation_steps"`
+	} `json:"hypotheses"`
+	RemediationPlan []struct {
 		StepNumber  int    `json:"step_number"`
 		Description string `json:"description"`
 		Command     string `json:"command"`
@@ -330,7 +411,7 @@ type agentOutput struct {
 	RunbookUsed string `json:"runbook_used"`
 }
 
-func parseReport(raw, clusterName, modelName string) (*incident.Report, error) {
+func parseReport(raw, clusterName, modelName string, ec *incident.EvidenceCollector) (*incident.Report, error) {
 	cleaned := stripMarkdownFences(raw)
 	match := jsonBlockRe.FindString(cleaned)
 	if match == "" {
@@ -377,6 +458,82 @@ func parseReport(raw, clusterName, modelName string) (*incident.Report, error) {
 			Automated:   step.Automated,
 		})
 	}
+
+	// ─── Process Evidence-Backed Conclusions & Guardrails ───────────────────────
+	seenEvidence := make(map[string]bool)
+
+	for _, c := range ao.Conclusions {
+		var validIDs []string
+		for _, id := range c.EvidenceIDs {
+			id = strings.TrimSpace(id)
+			if id != "" {
+				validIDs = append(validIDs, id)
+			}
+		}
+
+		if len(validIDs) == 0 {
+			r.Hypotheses = append(r.Hypotheses, incident.Hypothesis{
+				Statement: c.Statement,
+				Reason:    "Demoted from conclusion: unsupported by direct telemetry evidence IDs",
+			})
+			continue
+		}
+
+		if ec != nil && len(ec.All()) > 0 {
+			var verifiedIDs []string
+			for _, id := range validIDs {
+				if ev, ok := ec.GetByID(id); ok {
+					verifiedIDs = append(verifiedIDs, id)
+					if !seenEvidence[id] {
+						seenEvidence[id] = true
+						r.Evidence = append(r.Evidence, ev)
+					}
+				}
+			}
+
+			if len(verifiedIDs) == 0 {
+				r.Hypotheses = append(r.Hypotheses, incident.Hypothesis{
+					Statement: c.Statement,
+					Reason:    fmt.Sprintf("Demoted from conclusion: cited evidence IDs (%s) not found in collected telemetry", strings.Join(validIDs, ", ")),
+				})
+				continue
+			}
+			validIDs = verifiedIDs
+		}
+
+		r.Conclusions = append(r.Conclusions, incident.Conclusion{
+			Statement:   c.Statement,
+			EvidenceIDs: validIDs,
+			Reasoning:   c.Reasoning,
+		})
+	}
+
+	for _, h := range ao.Hypotheses {
+		r.Hypotheses = append(r.Hypotheses, incident.Hypothesis{
+			Statement:       h.Statement,
+			Reason:          h.Reason,
+			ValidationSteps: h.ValidationSteps,
+		})
+	}
+
+	if len(r.Evidence) == 0 && ec != nil {
+		allEv := ec.All()
+		if len(allEv) > 10 {
+			r.Evidence = allEv[:10]
+		} else {
+			r.Evidence = allEv
+		}
+	}
+
+	if r.RootCause == "" && len(r.Conclusions) > 0 {
+		c := r.Conclusions[0]
+		if len(c.EvidenceIDs) > 0 {
+			r.RootCause = fmt.Sprintf("%s [%s]", c.Statement, strings.Join(c.EvidenceIDs, ", "))
+		} else {
+			r.RootCause = c.Statement
+		}
+	}
+
 	return r, nil
 }
 

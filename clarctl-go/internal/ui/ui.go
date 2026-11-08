@@ -141,6 +141,58 @@ func PrintIncidentDetail(r *incident.Report) {
 		fmt.Println()
 	}
 
+	if len(r.Conclusions) > 0 {
+		fmt.Println(styleHeader.Render("Evidence-Backed Conclusions:"))
+		for _, c := range r.Conclusions {
+			evRefs := ""
+			if len(c.EvidenceIDs) > 0 {
+				evRefs = " " + styleGood.Render(fmt.Sprintf("[%s]", strings.Join(c.EvidenceIDs, ", ")))
+			}
+			fmt.Printf("  • %s%s\n", styleBold.Render(c.Statement), evRefs)
+			if c.Reasoning != "" {
+				fmt.Printf("    Reasoning: %s\n", styleDim.Render(c.Reasoning))
+			}
+		}
+		fmt.Println()
+	}
+
+	if len(r.Evidence) > 0 {
+		fmt.Println(styleHeader.Render("Supporting Evidence:"))
+		for _, ev := range r.Evidence {
+			sevStyle := styleGood
+			if ev.Severity == incident.EvidenceSeverityCritical {
+				sevStyle = styleCrit
+			} else if ev.Severity == incident.EvidenceSeverityWarning {
+				sevStyle = styleWarn
+			}
+			res := ""
+			if ev.Resource != "" {
+				res = fmt.Sprintf("[%s] ", ev.Resource)
+			}
+			fmt.Printf("  • %s %s %s%s\n",
+				styleBold.Render(ev.ID),
+				sevStyle.Render(fmt.Sprintf("(%s)", ev.Severity)),
+				styleDim.Render(res),
+				ev.Content,
+			)
+		}
+		fmt.Println()
+	}
+
+	if len(r.Hypotheses) > 0 {
+		fmt.Println(styleWarn.Render("Hypotheses (Unverified / Requires Validation):"))
+		for _, h := range r.Hypotheses {
+			fmt.Printf("  • %s\n", styleBold.Render(h.Statement))
+			if h.Reason != "" {
+				fmt.Printf("    Why: %s\n", styleDim.Render(h.Reason))
+			}
+			if len(h.ValidationSteps) > 0 {
+				fmt.Printf("    Validation: %s\n", styleDim.Render(strings.Join(h.ValidationSteps, "; ")))
+			}
+		}
+		fmt.Println()
+	}
+
 	if len(r.ContributingFactors) > 0 {
 		fmt.Println(styleHeader.Render("Contributing Factors:"))
 		for _, f := range r.ContributingFactors {

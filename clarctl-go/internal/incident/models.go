@@ -71,6 +71,11 @@ type Report struct {
 	ContributingFactors []string `json:"contributing_factors"`
 	ConfidenceScore     int      `json:"confidence_score"` // 0–100
 
+	// Evidence-Backed RCA
+	Evidence    []Evidence   `json:"evidence,omitempty"`
+	Conclusions []Conclusion `json:"conclusions,omitempty"`
+	Hypotheses  []Hypothesis `json:"hypotheses,omitempty"`
+
 	// Remediation
 	RemediationPlan []RemediationStep `json:"remediation_plan"`
 	RunbookUsed     string            `json:"runbook_used,omitempty"`
