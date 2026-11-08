@@ -20,6 +20,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.25.x'
+          cache-dependency-path: '**/go.sum'
 
       - name: Check Formatting (go fmt)
         run: |
@@ -61,11 +62,13 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.25.x'
+          cache-dependency-path: '**/go.sum'
 
       - name: Execute Unit Tests
         id: test
         run: |
           cd ${{ matrix.module }}
+          for i in 1 2 3; do go mod download && break || sleep 5; done
           if go list -f '{{if len .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | grep -q .; then
             go list -f '{{if len .TestGoFiles}}{{.ImportPath}}{{end}}' ./... | xargs -r go test -v -coverprofile=coverage.txt
             echo "has_tests=true" >> $GITHUB_OUTPUT
