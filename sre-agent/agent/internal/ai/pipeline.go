@@ -44,6 +44,9 @@ func New(cfg *config.Config, k8sCli *k8s.Client) (*Pipeline, error) {
 
 func buildLLM(cfg *config.Config) (llms.Model, error) {
 	model := cfg.LLMModel
+	if model == "" {
+		model = config.DefaultModelForProvider(cfg.LLMProvider)
+	}
 	switch cfg.LLMProvider {
 	case "groq":
 		model = strings.TrimPrefix(model, "groq/")
@@ -54,6 +57,7 @@ func buildLLM(cfg *config.Config) (llms.Model, error) {
 			openai.WithModel(model),
 		)
 	case "openai":
+		model = strings.TrimPrefix(model, "openai/")
 		return openai.New(
 			openai.WithToken(cfg.OpenAIAPIKey),
 			openai.WithModel(model),

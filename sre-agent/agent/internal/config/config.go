@@ -29,7 +29,7 @@ type Config struct {
 func DefaultModelForProvider(provider string) string {
 	switch strings.ToLower(provider) {
 	case "anthropic":
-		return "claude-3-5-sonnet-latest"
+		return "claude-3-7-sonnet-latest"
 	case "openai":
 		return "gpt-4o"
 	case "mistral":

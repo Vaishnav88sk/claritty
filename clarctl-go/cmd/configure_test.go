@@ -86,8 +86,8 @@ func TestUpdateConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("updateConfig failed on anthropic: %v", err)
 	}
-	if model != "anthropic/claude-3-5-sonnet-latest" {
-		t.Errorf("Expected anthropic/claude-3-5-sonnet-latest, got %s", model)
+	if model != "anthropic/claude-3-7-sonnet-latest" {
+		t.Errorf("Expected anthropic/claude-3-7-sonnet-latest, got %s", model)
 	}
 
 	// Test 5: Ollama provider

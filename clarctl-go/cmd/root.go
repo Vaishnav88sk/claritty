@@ -20,13 +20,14 @@ var RunbookFiles embed.FS
 
 // Global shared state wired by root PersistentPreRunE.
 var (
-	cfg    *config.Config
-	store  *db.DB
-	k8sCli *k8s.Client
-	logger *zap.Logger
+	cfg          *config.Config
+	store        *db.DB
+	k8sCli       *k8s.Client
+	logger       *zap.Logger
+	debugFlag    bool
+	modelFlag    string
+	providerFlag string
 )
-
-var debugFlag bool
 
 var rootCmd = &cobra.Command{
 	Use:   "clarctl",
@@ -40,6 +41,7 @@ Examples:
   clarctl status              Show current cluster health
   clarctl scan                Run a single AI-SRE scan
   clarctl scan --apply        Scan and interactively apply remediation
+  clarctl scan -m claude-3-7-sonnet-latest -p anthropic
   clarctl watch               Continuous monitoring loop
   clarctl incidents           View incident history
   clarctl show INC-ABCD1234   Show incident detail
@@ -63,6 +65,8 @@ func Execute() {
 
 func init() {
 	rootCmd.PersistentFlags().BoolVar(&debugFlag, "debug", false, "Enable debug logging")
+	rootCmd.PersistentFlags().StringVarP(&modelFlag, "model", "m", "", "Override LLM model name (e.g. claude-3-7-sonnet-latest, gpt-4o)")
+	rootCmd.PersistentFlags().StringVarP(&providerFlag, "provider", "p", "", "Override LLM provider (groq, anthropic, openai, mistral, ollama)")
 	rootCmd.AddCommand(scanCmd, watchCmd, statusCmd, incidentsCmd, showCmd, applyCmd, reportCmd, configureCmd)
 }
 
@@ -74,6 +78,17 @@ func setup() error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
+
+	if providerFlag != "" {
+		cfg.LLMProvider = providerFlag
+		if modelFlag == "" {
+			cfg.LLMModel = config.DefaultModelForProvider(providerFlag)
+		}
+	}
+	if modelFlag != "" {
+		cfg.LLMModel = modelFlag
+	}
+
 	if err := cfg.Validate(); err != nil {
 		return err
 	}

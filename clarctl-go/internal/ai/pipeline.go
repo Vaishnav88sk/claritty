@@ -41,6 +41,9 @@ func New(cfg *config.Config, k8sCli *k8s.Client) (*Pipeline, error) {
 // buildLLM creates the appropriate LLM client based on config.
 func buildLLM(cfg *config.Config) (llms.Model, error) {
 	modelName := cfg.LLMModel
+	if modelName == "" {
+		modelName = config.DefaultModelForProvider(cfg.LLMProvider)
+	}
 	switch cfg.LLMProvider {
 	case "groq":
 		modelName = strings.TrimPrefix(modelName, "groq/")
@@ -51,6 +54,7 @@ func buildLLM(cfg *config.Config) (llms.Model, error) {
 			openai.WithModel(modelName),
 		)
 	case "openai":
+		modelName = strings.TrimPrefix(modelName, "openai/")
 		return openai.New(
 			openai.WithToken(cfg.OpenAIAPIKey),
 			openai.WithModel(modelName),

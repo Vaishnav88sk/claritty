@@ -80,7 +80,7 @@ func ClarittyDir() string {
 func DefaultModelForProvider(provider string) string {
 	switch strings.ToLower(provider) {
 	case "anthropic":
-		return "anthropic/claude-3-5-sonnet-latest"
+		return "anthropic/claude-3-7-sonnet-latest"
 	case "openai":
 		return "openai/gpt-4o"
 	case "mistral":

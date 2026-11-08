@@ -44,3 +44,12 @@ func TestRootCmd_HelpOutput(t *testing.T) {
 		t.Errorf("Help output did not contain 'Available Commands:'")
 	}
 }
+
+func TestRootCmd_ModelAndProviderFlags(t *testing.T) {
+	if rootCmd.PersistentFlags().Lookup("model") == nil {
+		t.Errorf("Expected persistent flag --model")
+	}
+	if rootCmd.PersistentFlags().Lookup("provider") == nil {
+		t.Errorf("Expected persistent flag --provider")
+	}
+}
