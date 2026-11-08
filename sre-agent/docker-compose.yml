@@ -1,35 +1,50 @@
-# docker-compose.yml — Run the Claritty Hub locally
-# Requirements: Docker + a PostgreSQL connection string
+# docker-compose.yml — Run the complete Claritty stack with one command
 #
 # Usage:
-#   export DATABASE_URL=postgresql://user:password@host:5432/claritty
-#   export GROQ_API_KEY=your_key_here
-#   docker-compose up
+#   docker compose up -d --build
 #
-# Then open: http://localhost:8822
+# Dashboard: http://localhost:8822
+# API:       http://localhost:8822/api/v1/
 
 services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: claritty
+      POSTGRES_PASSWORD: clarittypassword
+      POSTGRES_DB: claritty
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U claritty -d claritty"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
   hub:
-    # build:
-    #   context: ./hub
-    #   dockerfile: Dockerfile
-    image: vaishnav88sk/claritty-hub:v1.0.0
-    imagePullPolicy: Always
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+    build:
+      context: ./hub
+      dockerfile: Dockerfile
+    restart: unless-stopped
     ports:
       - "8822:8822"
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
       HUB_PORT: "8822"
-      DATABASE_URL: "${DATABASE_URL}"
+      DATABASE_URL: "${DATABASE_URL:-postgres://claritty:clarittypassword@postgres:5432/claritty?sslmode=disable}"
       SLACK_WEBHOOK_URL: "${SLACK_WEBHOOK_URL:-}"
       SLACK_CHANNEL: "${SLACK_CHANNEL:-#sre-alerts}"
       CLARITTY_HUB_API_KEY: "${CLARITTY_HUB_API_KEY:-}"
-    volumes:
-      - ./hub/dashboard:/app/dashboard:ro
-    restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8822/healthz"]
-      interval: 30s
+      interval: 10s
       timeout: 5s
       retries: 3
+
+volumes:
+  postgres_data:

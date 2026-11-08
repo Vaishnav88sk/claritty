@@ -1,3 +1,11 @@
+# Multi-stage build: Svelte UI + Go Hub
+FROM node:22-alpine AS ui-builder
+WORKDIR /app/dashboard
+COPY dashboard/package*.json ./
+RUN npm ci || npm install
+COPY dashboard/ ./
+RUN npm run build
+
 FROM golang:1.24-alpine AS builder
 WORKDIR /app
 COPY go.mod go.sum ./
@@ -9,6 +17,6 @@ FROM alpine:3.19
 RUN apk add --no-cache ca-certificates
 WORKDIR /app
 COPY --from=builder /claritty-hub /usr/local/bin/claritty-hub
-COPY dashboard/ ./dashboard/
+COPY --from=ui-builder /app/dashboard/dist/ ./dashboard/dist/
 EXPOSE 8822
 ENTRYPOINT ["/usr/local/bin/claritty-hub"]
