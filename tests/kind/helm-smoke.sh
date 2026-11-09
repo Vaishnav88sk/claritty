@@ -16,6 +16,10 @@ hub_values=(
 
 helm lint infra/helm/claritty-agent "${agent_values[@]}"
 helm lint infra/helm/claritty-hub "${hub_values[@]}"
+helm template claritty-agent infra/helm/claritty-agent -n claritty "${agent_values[@]}" |
+  yamllint -c .yamllint -
+helm template claritty-hub infra/helm/claritty-hub -n claritty "${hub_values[@]}" |
+  yamllint -c .yamllint -
 
 kubectl create namespace claritty-db
 kubectl -n claritty-db apply -f tests/kind/postgres.yaml
