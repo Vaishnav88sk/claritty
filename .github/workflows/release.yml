@@ -36,6 +36,9 @@ jobs:
         working-directory: clarctl-go
         run: make cross
 
+      - name: Package local stack
+        run: git archive --format=tar.gz --output=clarctl-go/dist/clarctl-stack.tar.gz HEAD docker-compose.yml sre-agent/hub
+
       - name: Create checksums
         working-directory: clarctl-go/dist
         run: sha256sum clarctl-* > checksums.txt
@@ -49,5 +52,6 @@ jobs:
             clarctl-go/dist/clarctl-darwin-amd64
             clarctl-go/dist/clarctl-darwin-arm64
             clarctl-go/dist/clarctl-windows-amd64.exe
+            clarctl-go/dist/clarctl-stack.tar.gz
             clarctl-go/dist/checksums.txt
           generate_release_notes: true

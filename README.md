@@ -32,6 +32,9 @@ Download the pre-compiled binary to your local machine to diagnose your clusters
 # 1. Download the latest binary (Linux/macOS)
 curl -sL https://raw.githubusercontent.com/Vaishnav88sk/claritty/master/clarctl-go/install.sh | bash
 ```
+
+With Docker running and the Compose plugin installed, use `clarctl up` from any directory to start the local stack and open the [dashboard](http://localhost:8822). Run `clarctl down` to stop it and keep PostgreSQL data.
+
 ```bash
 # 2. Run help
 

@@ -79,11 +79,30 @@ func TestStackCommands(t *testing.T) {
 }
 
 func TestFindStackComposeFileIgnoresUnrelatedCompose(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("USERPROFILE", os.Getenv("HOME"))
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "docker-compose.yml"), nil, 0644); err != nil {
 		t.Fatal(err)
 	}
 	if path, err := findStackComposeFile(dir); err == nil {
 		t.Fatalf("unexpected Compose file %q outside a Claritty checkout", path)
+	}
+}
+
+func TestFindStackComposeFileUsesInstalledStack(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	installed := filepath.Join(home, ".claritty", "stack", "claritty", "docker-compose.yml")
+	if err := os.MkdirAll(filepath.Dir(installed), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(installed, nil, 0644); err != nil {
+		t.Fatal(err)
+	}
+	path, err := findStackComposeFile(home)
+	if err != nil || path != installed {
+		t.Fatalf("expected installed Compose file %q, got %q with error %v", installed, path, err)
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/Vaishnav88sk/claritty/clarctl-go/internal/config"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/cobra"
 )
@@ -14,7 +15,7 @@ func newStackCommand(name, short, success string, composeArgs ...string) *cobra.
 	return &cobra.Command{
 		Use:   name,
 		Short: short,
-		Long:  short + ".\nRun from a Claritty checkout with Docker and the Docker Compose plugin installed.",
+		Long:  short + ".\nRequires Docker with the Compose plugin and an installed stack bundle or a Claritty checkout.",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			dir, err := os.Getwd()
@@ -44,6 +45,13 @@ func newStackCommand(name, short, success string, composeArgs ...string) *cobra.
 }
 
 func findStackComposeFile(dir string) (string, error) {
+	installed := filepath.Join(config.ClarittyDir(), "stack", "claritty", "docker-compose.yml")
+	if _, err := os.Stat(installed); err == nil {
+		return installed, nil
+	} else if !os.IsNotExist(err) {
+		return "", fmt.Errorf("find installed Claritty Compose file: %w", err)
+	}
+
 	for {
 		// The root Compose file builds the Hub from this checkout. Use the
 		// Dockerfile to distinguish it from unrelated and nested Compose files.
@@ -56,7 +64,7 @@ func findStackComposeFile(dir string) (string, error) {
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return "", fmt.Errorf("Claritty Compose file not found. Run this command from a Claritty checkout")
+			return "", fmt.Errorf("Claritty stack files are missing. Install the stack bundle or run from a Claritty checkout")
 		}
 		dir = parent
 	}
