@@ -21,6 +21,8 @@ type Config struct {
 	AnthropicAPIKey string
 	OllamaHost      string
 	ScanInterval    time.Duration
+	AutoWatch       bool
+	EnableControl   bool
 	Namespaces      []string // empty = all namespaces
 	ListenAddr      string
 }
@@ -59,6 +61,8 @@ func Load() *Config {
 		OllamaHost:      getEnv("OLLAMA_HOST", "http://localhost:11434"),
 		ListenAddr:      getEnv("AGENT_LISTEN_ADDR", ":9090"),
 	}
+	cfg.AutoWatch, _ = strconv.ParseBool(getEnv("CLARITTY_AGENT_AUTOWATCH", "false"))
+	cfg.EnableControl, _ = strconv.ParseBool(getEnv("CLARITTY_AGENT_ENABLE_CONTROL", "true"))
 
 	secs, err := strconv.Atoi(getEnv("SCAN_INTERVAL_SECS", "300"))
 	if err != nil || secs < 30 {

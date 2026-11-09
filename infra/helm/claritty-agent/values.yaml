@@ -1,0 +1,27 @@
+# Set to the Agent image reference. Use a digest for production.
+image: ""
+imagePullPolicy: IfNotPresent
+
+clusterName: ""
+hubURL: ""
+# Contains CLARITTY_HUB_API_KEY and the selected provider's API key, if needed.
+existingSecret: ""
+
+autoWatch: true
+scanIntervalSeconds: 300
+# Empty watches all namespaces. An explicit list scopes namespace-level RBAC.
+watchNamespaces: []
+controlEnabled: false
+
+llm:
+  provider: groq
+  model: ""
+  ollamaHost: ""
+
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi

@@ -1,0 +1,85 @@
+{{- $secret := required "existingSecret is required" .Values.existingSecret -}}
+{{- $providerKeys := dict "groq" "GROQ_API_KEY" "openai" "OPENAI_API_KEY" "anthropic" "ANTHROPIC_API_KEY" "mistral" "MISTRAL_API_KEY" "ollama" "" "mock" "" -}}
+{{- if not (hasKey $providerKeys .Values.llm.provider) -}}
+{{- fail "llm.provider must be groq, openai, anthropic, mistral, ollama, or mock" -}}
+{{- end -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: claritty-agent
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: claritty-agent
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      serviceAccountName: {{ .Release.Name }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: agent
+          image: {{ required "image is required" .Values.image | quote }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - name: http
+              containerPort: 9090
+          env:
+            - name: CLARITTY_CLUSTER_NAME
+              value: {{ required "clusterName is required" .Values.clusterName | quote }}
+            - name: CLARITTY_HUB_URL
+              value: {{ required "hubURL is required" .Values.hubURL | quote }}
+            - name: CLARITTY_HUB_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: CLARITTY_HUB_API_KEY
+            - name: CLARITTY_AGENT_AUTOWATCH
+              value: {{ .Values.autoWatch | quote }}
+            - name: CLARITTY_AGENT_ENABLE_CONTROL
+              value: {{ .Values.controlEnabled | quote }}
+            - name: SCAN_INTERVAL_SECS
+              value: {{ .Values.scanIntervalSeconds | quote }}
+            - name: WATCH_NAMESPACES
+              value: {{ join "," .Values.watchNamespaces | quote }}
+            - name: LLM_PROVIDER
+              value: {{ .Values.llm.provider | quote }}
+            - name: LLM_MODEL
+              value: {{ .Values.llm.model | quote }}
+            {{- if eq .Values.llm.provider "ollama" }}
+            - name: OLLAMA_HOST
+              value: {{ required "llm.ollamaHost is required with the ollama provider" .Values.llm.ollamaHost | quote }}
+            {{- end }}
+            {{- with get $providerKeys .Values.llm.provider }}
+            - name: {{ . }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ $secret }}
+                  key: {{ . }}
+            {{- end }}
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}

@@ -1,0 +1,51 @@
+name: Helm Deployment Tests
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'infra/**'
+      - 'sre-agent/**'
+      - 'tests/kind/**'
+      - '.github/workflows/infra.yaml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'infra/**'
+      - 'sre-agent/**'
+      - 'tests/kind/**'
+      - '.github/workflows/infra.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  helm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Prepare test images
+        run: |
+          docker build --tag claritty-agent:kind sre-agent/agent
+          docker build --tag claritty-hub:kind sre-agent/hub
+          docker pull postgres:16-alpine
+
+      - name: Create KinD cluster and load images
+        run: |
+          kind create cluster --name claritty --wait 120s
+          kind load docker-image --name claritty claritty-agent:kind claritty-hub:kind postgres:16-alpine
+
+      - name: Verify Helm install, report delivery, and Agent restart
+        run: bash tests/kind/helm-smoke.sh
+
+      - name: Show deployment diagnostics
+        if: failure()
+        run: |
+          kubectl get pods --all-namespaces -o wide || true
+          kubectl -n claritty-db get events --sort-by=.lastTimestamp || true
+          kubectl -n claritty-db logs deployment/postgres || true
+          kubectl -n claritty get events --sort-by=.lastTimestamp || true
+          kubectl -n claritty logs deployment/claritty-hub || true
+          kubectl -n claritty logs deployment/claritty-agent || true

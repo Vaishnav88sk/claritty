@@ -2,6 +2,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -40,6 +41,10 @@ func New(databaseURL string) (*Store, error) {
 // Useful for testing with tools like go-sqlmock.
 func NewWithDB(db *sql.DB) *Store {
 	return &Store{db: db}
+}
+
+func (s *Store) Ping(ctx context.Context) error {
+	return s.db.PingContext(ctx)
 }
 
 func (s *Store) migrate() error {
@@ -98,14 +103,14 @@ func (s *Store) migrate() error {
 	}
 
 	// Dynamic migration for Unified Evidence Model & Timeline fields
-	_, _ = s.db.Exec(`
+	_, err = s.db.Exec(`
 		ALTER TABLE incidents ADD COLUMN IF NOT EXISTS evidence JSONB;
 		ALTER TABLE incidents ADD COLUMN IF NOT EXISTS conclusions JSONB;
 		ALTER TABLE incidents ADD COLUMN IF NOT EXISTS hypotheses JSONB;
 		ALTER TABLE incidents ADD COLUMN IF NOT EXISTS timeline JSONB;
 		ALTER TABLE incidents ADD COLUMN IF NOT EXISTS changes JSONB;
 	`)
-	return nil
+	return err
 }
 
 // ─── Cluster operations ───────────────────────────────────────────────────────

@@ -75,6 +75,8 @@ Cluster C (qa)   ──► claritty-agent ─┘         │
 - **Hub (`sre-agent/hub`)**: Central Go REST API server. Receives incident payloads from agents, persists them in PostgreSQL, triggers Slack alerts, and serves the static SPA dashboard.
 - **Dashboard (`sre-agent/hub/dashboard`)**: Svelte Single Page Application. Features multi-cluster health cards, namespace filtering, MTTR analytics, and an interactive RCA modal with copy-able remediation commands.
 
+See the [Kubernetes deployment guide](../infra/README.md) for Helm installation. When running the Agent from source or with raw manifests, set `CLARITTY_AGENT_AUTOWATCH=true` to scan at startup and after restarts. Helm enables this setting by default. Set `CLARITTY_AGENT_ENABLE_CONTROL=false` to disable the HTTP scan controls.
+
 ---
 
 ## 🛠️ Getting Started (For Developers)
@@ -111,7 +113,7 @@ The in-cluster agent exposes a lightweight HTTP server for K8s probes and Hub co
 | Endpoint | Method | Description |
 |---|---|---|
 | `/healthz` | GET | Liveness/Readiness probe |
-| `/trigger` | POST | Triggers one immediate AI scan of the cluster |
+| `/trigger` | POST | Triggers one immediate AI scan of the cluster, or returns `409` while a scan is running |
 | `/watch` | POST | Starts continuous background scanning (default: 5 min) |
 | `/watch` | DELETE | Stops continuous background scanning |
 | `/status` | GET | Returns agent configuration and watch state |

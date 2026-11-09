@@ -1,0 +1,6 @@
+apiVersion: v2
+name: claritty-agent
+description: Cluster scanner that sends RCA reports to a Claritty Hub
+type: application
+version: 0.1.0
+appVersion: "dev"

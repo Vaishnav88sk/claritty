@@ -2,6 +2,8 @@
 
 This guide covers setting up the centralized **Hub Server** (Dashboard) and connecting your **Kubernetes Clusters** (Agents).
 
+For an in-cluster Hub and Agent installation using versioned Helm charts, see the [Kubernetes deployment guide](infra/README.md).
+
 ---
 
 ## Part 1: Deploy the Hub Server (Central Dashboard)

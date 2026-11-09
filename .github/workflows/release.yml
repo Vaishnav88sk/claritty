@@ -36,8 +36,12 @@ jobs:
     if: github.event_name == 'push'
     name: Cross-compile and Release
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
     env:
       HUB_IMAGE: docker.io/${{ vars.DOCKERHUB_USERNAME }}/claritty-hub
+      AGENT_IMAGE: docker.io/${{ vars.DOCKERHUB_USERNAME }}/claritty-ai-sre-agent
 
     steps:
       - name: Checkout code
@@ -84,6 +88,41 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ env.HUB_IMAGE }}:${{ github.ref_name }}
+          sbom: true
+          provenance: true
+
+      - name: Publish the Agent image
+        id: agent
+        uses: docker/build-push-action@v7
+        with:
+          context: ./sre-agent/agent
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ env.AGENT_IMAGE }}:${{ github.ref_name }}
+          sbom: true
+          provenance: true
+
+      - name: Publish the Helm charts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HUB_DIGEST: ${{ steps.hub.outputs.digest }}
+          AGENT_DIGEST: ${{ steps.agent.outputs.digest }}
+        run: |
+          chart_dir=$(mktemp -d)
+          cp -R infra/helm "$chart_dir/source"
+          version=${GITHUB_REF_NAME#v}
+          printf '%s' "$GH_TOKEN" | helm registry login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          for chart in claritty-agent claritty-hub; do
+            if [ "$chart" = claritty-agent ]; then
+              image="${AGENT_IMAGE}@${AGENT_DIGEST:?Missing published Agent image digest}"
+            else
+              image="${HUB_IMAGE}@${HUB_DIGEST:?Missing published Hub image digest}"
+            fi
+            sed -i "s|^image: \"\"$|image: \"$image\"|" "$chart_dir/source/$chart/values.yaml"
+            helm package "$chart_dir/source/$chart" --version "$version" \
+              --app-version "$GITHUB_REF_NAME" --destination "$chart_dir"
+            helm push "$chart_dir/$chart-$version.tgz" "oci://ghcr.io/${GITHUB_REPOSITORY,,}/charts"
+          done
 
       - name: Package local stack
         env:

@@ -82,7 +82,7 @@ func buildLLM(cfg *config.Config) (llms.Model, error) {
 			ollama.WithModel(model),
 		)
 	case "mock":
-		return &MockLLM{}, nil
+		return &MockLLM{Response: `{"has_issue":false,"severity":"SEV4","title":"Mock scan completed","category":"healthy"}`}, nil
 	default:
 		return nil, fmt.Errorf("unsupported LLM provider: %s", cfg.LLMProvider)
 	}
@@ -186,7 +186,14 @@ func (p *Pipeline) collectTriage(ctx context.Context, ec *incident.EvidenceColle
 	if err != nil {
 		return "", err
 	}
-	events := p.k8sCli.CollectEvents(ctx, "")
+	var events strings.Builder
+	namespaces := p.cfg.Namespaces
+	if len(namespaces) == 0 {
+		namespaces = []string{""}
+	}
+	for _, namespace := range namespaces {
+		events.WriteString(p.k8sCli.CollectEvents(ctx, namespace))
+	}
 
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "CLUSTER: %s\nNodes: %d/%d Ready\nPods: %d Running / %d Pending / %d Failed / %d CrashLoop\n\n",
@@ -257,8 +264,9 @@ func (p *Pipeline) collectTriage(ctx context.Context, ec *incident.EvidenceColle
 		}
 	}
 
-	if events != "" {
-		fmt.Fprintf(&sb, "\nRECENT WARNING EVENTS:\n%s", truncate(events, 1000))
+	if events.Len() > 0 {
+		eventText := events.String()
+		fmt.Fprintf(&sb, "\nRECENT WARNING EVENTS:\n%s", truncate(eventText, 1000))
 		var evtID string
 		if ec != nil {
 			evItem := ec.Add(incident.Evidence{
@@ -266,7 +274,7 @@ func (p *Pipeline) collectTriage(ctx context.Context, ec *incident.EvidenceColle
 				Type:      incident.EvidenceTypeEvent,
 				Resource:  p.cfg.ClusterName,
 				Severity:  incident.EvidenceSeverityWarning,
-				Content:   fmt.Sprintf("Warning events: %s", truncate(events, 200)),
+				Content:   fmt.Sprintf("Warning events: %s", truncate(eventText, 200)),
 				Relevance: 0.85,
 			})
 			evtID = evItem.ID
@@ -277,7 +285,7 @@ func (p *Pipeline) collectTriage(ctx context.Context, ec *incident.EvidenceColle
 				Source:     "k8s-events",
 				Type:       "warning_event",
 				Resource:   p.cfg.ClusterName,
-				Message:    truncate(events, 150),
+				Message:    truncate(eventText, 150),
 				Severity:   "warning",
 				EvidenceID: evtID,
 			})

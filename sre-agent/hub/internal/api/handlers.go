@@ -2,6 +2,7 @@
 package api
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -55,7 +56,7 @@ func (h *Handler) handleIncidents(w http.ResponseWriter, r *http.Request) {
 // receiveIncident accepts an incident report from a cluster agent.
 func (h *Handler) receiveIncident(w http.ResponseWriter, r *http.Request) {
 	// Optional API key check
-	if h.apiKey != "" && r.Header.Get("X-Claritty-Key") != h.apiKey {
+	if h.apiKey != "" && subtle.ConstantTimeCompare([]byte(r.Header.Get("X-Claritty-Key")), []byte(h.apiKey)) != 1 {
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
 		return
 	}

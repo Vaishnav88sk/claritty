@@ -9,6 +9,8 @@ metadata:
     version: v1.0.0
 spec:
   replicas: 1  # Always 1 — the K8s API gives a global cluster view
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: claritty-agent

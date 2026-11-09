@@ -12,19 +12,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/Vaishnav88sk/claritty/sre-agent/agent/internal/ai"
 	"github.com/Vaishnav88sk/claritty/sre-agent/agent/internal/config"
 	"github.com/Vaishnav88sk/claritty/sre-agent/agent/internal/k8s"
-)
-
-var (
-	watchMu      sync.Mutex
-	watchCancel  context.CancelFunc
-	watchRunning bool
 )
 
 func main() {
@@ -42,7 +35,20 @@ func main() {
 		log.Fatalf("Failed to create AI pipeline: %v", err)
 	}
 
-	// ── HTTP API ────────────────────────────────────────────────────────────
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	scanner := &scanController{
+		interval: cfg.ScanInterval,
+		scanSlot: make(chan struct{}, 1),
+		run: func(ctx context.Context) {
+			runScanAndSend(ctx, pipeline, cfg)
+		},
+	}
+	if cfg.AutoWatch {
+		scanner.startWatch(ctx)
+	}
+
 	mux := http.NewServeMux()
 
 	// Health check
@@ -51,87 +57,42 @@ func main() {
 		fmt.Fprint(w, "ok")
 	})
 
-	// POST /trigger — run one immediate scan
-	mux.HandleFunc("/trigger", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "POST only", http.StatusMethodNotAllowed)
-			return
-		}
-		log.Println("Manual scan triggered via /trigger")
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
-			defer cancel()
-			runScanAndSend(ctx, pipeline, cfg)
-		}()
-		w.WriteHeader(http.StatusAccepted)
-		fmt.Fprint(w, `{"status":"scan started"}`)
-	})
-
-	// POST /watch — start continuous scanning
-	mux.HandleFunc("/watch", func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPost:
-			watchMu.Lock()
-			defer watchMu.Unlock()
-			if watchRunning {
+	if cfg.EnableControl {
+		mux.HandleFunc("POST /trigger", func(w http.ResponseWriter, r *http.Request) {
+			if !scanner.trigger(ctx) {
+				http.Error(w, "scan unavailable or already running", http.StatusConflict)
+				return
+			}
+			log.Println("Manual scan triggered via /trigger")
+			w.WriteHeader(http.StatusAccepted)
+			fmt.Fprint(w, `{"status":"scan started"}`)
+		})
+		mux.HandleFunc("POST /watch", func(w http.ResponseWriter, r *http.Request) {
+			if !scanner.startWatch(ctx) {
 				fmt.Fprint(w, `{"status":"already watching"}`)
 				return
 			}
-			ctx, cancel := context.WithCancel(context.Background())
-			watchCancel = cancel
-			watchRunning = true
-			go func() {
-				log.Printf("Continuous watch started (interval=%s)", cfg.ScanInterval)
-				for {
-					scanCtx, scanCancel := context.WithTimeout(ctx, 10*time.Minute)
-					runScanAndSend(scanCtx, pipeline, cfg)
-					scanCancel()
-					select {
-					case <-time.After(cfg.ScanInterval):
-					case <-ctx.Done():
-						watchMu.Lock()
-						watchRunning = false
-						watchMu.Unlock()
-						log.Println("Continuous watch stopped")
-						return
-					}
-				}
-			}()
-			w.WriteHeader(http.StatusOK)
 			fmt.Fprintf(w, `{"status":"watch started","interval_secs":%d}`, int(cfg.ScanInterval.Seconds()))
-
-		case http.MethodDelete:
-			watchMu.Lock()
-			defer watchMu.Unlock()
-			if watchCancel != nil {
-				watchCancel()
-				watchCancel = nil
-			}
+		})
+		mux.HandleFunc("DELETE /watch", func(w http.ResponseWriter, r *http.Request) {
+			scanner.stopWatch()
 			fmt.Fprint(w, `{"status":"watch stopped"}`)
-
-		default:
-			http.Error(w, "POST or DELETE only", http.StatusMethodNotAllowed)
-		}
-	})
-
-	// GET /status — return agent status
+		})
+	}
 	mux.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
-		watchMu.Lock()
-		running := watchRunning
-		watchMu.Unlock()
 		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"cluster":"%s","hub":"%s","watching":%v,"interval_secs":%d}`,
-			cfg.ClusterName, cfg.HubURL, running, int(cfg.ScanInterval.Seconds()))
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"cluster": cfg.ClusterName, "hub": cfg.HubURL,
+			"watching": scanner.watching(), "interval_secs": int(cfg.ScanInterval.Seconds()),
+		})
 	})
 
 	// ── Graceful shutdown ───────────────────────────────────────────────────
 	srv := &http.Server{
-		Addr:    cfg.ListenAddr,
-		Handler: mux,
+		Addr:              cfg.ListenAddr,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
 
 	go func() {
 		log.Printf("Agent HTTP server listening on %s", cfg.ListenAddr)
@@ -146,6 +107,7 @@ func main() {
 	shutCtx, shutCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutCancel()
 	_ = srv.Shutdown(shutCtx)
+	scanner.waitForScan(shutCtx)
 }
 
 // runScanAndSend runs the AI pipeline and POSTs the result to the hub.
@@ -187,5 +149,9 @@ func sendToHub(ctx context.Context, cfg *config.Config, report interface{}) {
 		return
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		log.Printf("Hub rejected report: %s", resp.Status)
+		return
+	}
 	log.Printf("Report sent to hub: %s", resp.Status)
 }

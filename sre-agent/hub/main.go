@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -23,6 +24,9 @@ func main() {
 
 	if cfg.DatabaseURL == "" {
 		log.Fatal("DATABASE_URL is required. Set it to your PostgreSQL connection string.")
+	}
+	if cfg.RequireAPIKey && strings.TrimSpace(cfg.HubAPIKey) == "" {
+		log.Fatal("CLARITTY_HUB_API_KEY is required when CLARITTY_REQUIRE_HUB_API_KEY is enabled")
 	}
 
 	// ── Database ─────────────────────────────────────────────────────────────
@@ -46,6 +50,15 @@ func main() {
 	// Health
 	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "ok")
+	})
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
+		defer cancel()
+		if err := store.Ping(ctx); err != nil {
+			http.Error(w, "database unavailable", http.StatusServiceUnavailable)
+			return
+		}
 		fmt.Fprint(w, "ok")
 	})
 
