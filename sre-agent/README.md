@@ -15,7 +15,7 @@ Run the centralized Hub server on any Linux machine or VM with Docker Compose:
 mkdir -p claritty-hub && cd claritty-hub
 
 # 1. Download the official docker-compose.yml
-curl -sL https://raw.githubusercontent.com/Vaishnav88sk/claritty/master/sre-agent/docker-compose.yml -o docker-compose.yml
+curl -fsSL https://github.com/Vaishnav88sk/claritty/releases/latest/download/claritty-compose.yml -o docker-compose.yml
 
 # 2. Set your PostgreSQL database connection string
 export DATABASE_URL="postgresql://postgres:password@your-db-host:5432/claritty?sslmode=require"
@@ -24,7 +24,7 @@ export DATABASE_URL="postgresql://postgres:password@your-db-host:5432/claritty?s
 export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/T000/B000/XXXXXX"
 
 # 4. Start the Hub
-docker-compose up -d
+docker compose up -d
 ```
 👉 Open **http://localhost:8822** in your browser. The dashboard is live!
 

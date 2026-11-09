@@ -47,10 +47,10 @@ The Hub serves as the central control plane, receiving telemetry from your agent
 export DATABASE_URL="postgresql://user:pass@host:5432/claritty?sslmode=require"
 
 # Download the compose file
-curl -sL https://raw.githubusercontent.com/Vaishnav88sk/claritty/master/sre-agent/docker-compose.yml -o docker-compose.yml
+curl -fsSL https://github.com/Vaishnav88sk/claritty/releases/latest/download/claritty-compose.yml -o docker-compose.yml
 
 # Start the Hub in detached mode
-docker-compose up -d
+docker compose up -d
 ```
 > View the beautiful Claritty dashboard at `http://localhost:8822`!
 

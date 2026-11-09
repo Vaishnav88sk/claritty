@@ -11,7 +11,7 @@ You can run the Hub on any Linux server, VM, or your local machine that has Dock
 On your server, download the official compose file:
 ```bash
 mkdir -p claritty-hub && cd claritty-hub
-curl -sL https://raw.githubusercontent.com/Vaishnav88sk/claritty/master/sre-agent/docker-compose.yml -o docker-compose.yml
+curl -fsSL https://github.com/Vaishnav88sk/claritty/releases/latest/download/claritty-compose.yml -o docker-compose.yml
 ```
 
 ### Step 2: Set Environment Variables & Start
@@ -24,7 +24,7 @@ export DATABASE_URL="postgresql://postgres:yourpassword@your-db-host:5432/clarit
 export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/T000/B000/XXXXXX"
 
 # 3. Start the Hub server in the background
-docker-compose up -d
+docker compose up -d
 ```
 
 ### Step 3: Verify the Hub is Live

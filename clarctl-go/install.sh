@@ -79,7 +79,6 @@ if [ -n "$STACK_URL" ]; then
   curl -fsSL "$STACK_URL" -o "$STACK_TMP/stack.tar.gz"
   tar -xzf "$STACK_TMP/stack.tar.gz" -C "$STACK_TMP/claritty"
   test -f "$STACK_TMP/claritty/docker-compose.yml"
-  test -f "$STACK_TMP/claritty/sre-agent/hub/Dockerfile"
   if [ -f "$STACK_PATH/.env" ]; then
     cp -p "$STACK_PATH/.env" "$STACK_TMP/claritty/.env"
   fi

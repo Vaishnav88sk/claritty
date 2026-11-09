@@ -54,8 +54,8 @@ Deploy the centralized dashboard and the agent into your clusters for continuous
 export DATABASE_URL="postgresql://user:pass@host:5432/claritty?sslmode=require"
 ```
 ```bash
-curl -sL https://raw.githubusercontent.com/Vaishnav88sk/claritty/master/sre-agent/docker-compose.yml -o docker-compose.yml
-docker-compose up -d
+curl -fsSL https://github.com/Vaishnav88sk/claritty/releases/latest/download/claritty-compose.yml -o docker-compose.yml
+docker compose up -d
 # View dashboard at http://localhost:8822
 ```
 
@@ -149,6 +149,10 @@ export CLARITTY_HUB_URL="http://localhost:8822"
 export GROQ_API_KEY="your_key_here"
 go run .
 ```
+
+### Publishing a release
+
+Create a public `claritty-hub` repository under your Docker Hub account. Set `DOCKERHUB_USERNAME` as a GitHub Actions repository variable and `DOCKERHUB_TOKEN` as an Actions secret with permission to push to that repository. A `v*` tag triggers the release workflow to publish the Hub image and attach the CLI binaries and Compose files to the GitHub release.
 
 ---
 

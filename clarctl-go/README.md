@@ -34,7 +34,7 @@ Use the [release installer](../README.md#-installation-for-end-users) to install
 clarctl up
 ```
 
-`clarctl up` builds the Hub image, starts the Hub and PostgreSQL in the background, and waits for both services to be healthy. The Hub container serves the [web dashboard](http://localhost:8822). `clarctl down` removes the containers and keeps the PostgreSQL volume for the next start.
+`clarctl up` pulls the released Hub image from Docker Hub, starts the Hub and PostgreSQL in the background, and waits for both services to be healthy. The Hub container serves the [web dashboard](http://localhost:8822). `clarctl down` removes the containers and keeps the PostgreSQL volume for the next start.
 
 Both commands require no kubeconfig or LLM credentials. Deploy the SRE agent in each Kubernetes cluster you want to connect to the Hub.
 
