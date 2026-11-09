@@ -4,12 +4,36 @@ on:
   push:
     tags:
       - 'v*'
+  release:
+    types: [published]
 
 permissions:
   contents: write
 
 jobs:
+  changelog:
+    if: github.event_name == 'release' && startsWith(github.ref_name, 'v')
+    name: Generate Release Changelog
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout release history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update release notes
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes_file="$RUNNER_TEMP/claritty-release-notes.md"
+          gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq '.body // ""' \
+            | python3 .github/scripts/release-notes.py "$GITHUB_REF_NAME" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            > "$notes_file"
+          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --notes-file "$notes_file"
+
   release:
+    if: github.event_name == 'push'
     name: Cross-compile and Release
     runs-on: ubuntu-latest
     env:
@@ -18,6 +42,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Go
         uses: actions/setup-go@v5
@@ -80,9 +106,28 @@ jobs:
         working-directory: clarctl-go/dist
         run: sha256sum clarctl-* claritty-compose.yml > checksums.txt
 
+      - name: Generate notes for a new release
+        id: notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          lookup_error="$RUNNER_TEMP/claritty-release-lookup.err"
+          if gh api --silent "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" 2> "$lookup_error"; then
+            exit 0
+          fi
+          if ! grep -Fq '(HTTP 404)' "$lookup_error"; then
+            cat "$lookup_error" >&2
+            exit 1
+          fi
+          notes_file="$RUNNER_TEMP/claritty-release-notes.md"
+          python3 .github/scripts/release-notes.py "$GITHUB_REF_NAME" "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY" \
+            < /dev/null > "$notes_file"
+          echo "path=$notes_file" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          body_path: ${{ steps.notes.outputs.path }}
           files: |
             clarctl-go/dist/clarctl-linux-amd64
             clarctl-go/dist/clarctl-linux-arm64
@@ -92,4 +137,3 @@ jobs:
             clarctl-go/dist/clarctl-stack.tar.gz
             clarctl-go/dist/claritty-compose.yml
             clarctl-go/dist/checksums.txt
-          generate_release_notes: true
