@@ -17,33 +17,59 @@ The Hub chart runs versioned schema migrations in a Job before install and upgra
 
 ## Install with Helm
 
-Release container images are published to Docker Hub as `docker.io/vaishnav88sk/claritty-hub` and `docker.io/vaishnav88sk/claritty-ai-sre-agent`. The release workflow uses `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` to authenticate an account with write access to both repositories. The packaged Compose stack pins the Hub image by digest.
+Kubernetes pulls the Hub and Agent container images from Docker Hub. The Helm client contacts GHCR only when you install a published chart through an `oci://ghcr.io` URL. You can also install the charts directly from this checkout using Docker Hub image references.
 
-The versioned Helm charts are distributed through GHCR and pin the corresponding Docker Hub images by digest. Set `version` to the chart version, omitting the `v` from the release tag. Authenticate to GHCR with `helm registry login ghcr.io` if the chart packages are private. For a chart installed from this checkout, use the local chart path, omit `--version`, and pass `--set-string image=<docker-hub-image@sha256:digest>` or a locally built image reference.
+### Use local charts and Docker Hub images
 
-Run the Hub install with `kubectl` configured for the Hub cluster.
+Run from the repository root. Set `TAG` to the published Docker Hub image tag that matches the chart revision in this checkout, including the `v` prefix. Use the Hub cluster's `kubectl` context for the first command and the monitored cluster's context for the second.
 
 ```bash
-helm upgrade --install claritty-hub oci://ghcr.io/vaishnav88sk/claritty/charts/claritty-hub \
-  --version "$version" --namespace claritty --wait \
-  --set-string existingSecret=claritty-hub-secrets
+HUB_IMAGE="docker.io/vaishnav88sk/claritty-hub:${TAG:?Set TAG to a matching published release tag}"
+AGENT_IMAGE="docker.io/vaishnav88sk/claritty-ai-sre-agent:${TAG}"
+
+helm upgrade --install claritty-hub ./infra/helm/claritty-hub \
+  --namespace claritty --wait --timeout 7m \
+  --set-string existingSecret=claritty-hub-secrets \
+  --set-string image="$HUB_IMAGE"
+
+helm upgrade --install claritty-agent ./infra/helm/claritty-agent \
+  --namespace claritty --wait \
+  --set-string existingSecret=claritty-agent-secrets \
+  --set-string image="$AGENT_IMAGE" \
+  --set-string clusterName=production-us-east \
+  --set-string hubURL=http://claritty-hub.claritty.svc:8822
 ```
 
-The default Hub install creates a ClusterIP Service on port `8822` for a trusted private network. For Agents in the same cluster, set `hubURL` to `http://claritty-hub.claritty.svc:8822`. Use the TLS and SSO configuration below for production access.
+For production, replace the two image assignments with digest references. You can also point them to images built from this checkout and made available to your cluster.
 
-Run the Agent install with `kubectl` configured for the monitored cluster.
+### Use published Helm charts from GHCR
+
+The release workflow publishes versioned chart packages to GHCR and pins their images to the corresponding Docker Hub digests. Use `helm registry login ghcr.io` if the chart packages are private. Set `TAG` to the published release tag and derive the chart version by removing the `v` prefix.
 
 ```bash
+VERSION="${TAG:?Set TAG to a published release tag}"
+VERSION="${VERSION#v}"
+
+helm upgrade --install claritty-hub oci://ghcr.io/vaishnav88sk/claritty/charts/claritty-hub \
+  --version "$VERSION" --namespace claritty --wait --timeout 7m \
+  --set-string existingSecret=claritty-hub-secrets
+
 helm upgrade --install claritty-agent oci://ghcr.io/vaishnav88sk/claritty/charts/claritty-agent \
-  --version "$version" --namespace claritty --wait \
+  --version "$VERSION" --namespace claritty --wait \
   --set-string existingSecret=claritty-agent-secrets \
   --set-string clusterName=production-us-east \
-  --set-string hubURL=https://reports.example.com
+  --set-string hubURL=http://claritty-hub.claritty.svc:8822
 ```
+
+### Configure connectivity
+
+Both examples use the Hub's private ClusterIP address for an Agent in the same cluster. For Agents in other clusters, set `hubURL` to the reachable HTTPS ingestion hostname from the TLS and SSO configuration below.
 
 The Agent scans immediately at startup and waits `scanIntervalSeconds` between scans. Set `watchNamespaces` to a list of existing namespaces to limit pod, log, event, and change collection and their RBAC grants. The Agent retains cluster-wide node visibility. The HTTP scan controls are disabled by default. Keep them on a private path if you enable `controlEnabled`.
 
 For a cluster already running the raw Agent Deployment, stop the existing Agent before installing the chart to avoid overlapping scans. Choose a distinct Helm release name if you retain the raw manifests for rollback.
+
+For maintainers, the release workflow uses `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` to publish to both Docker Hub repositories. The packaged Compose stack pins the Hub image by digest.
 
 ## TLS and dashboard SSO
 
