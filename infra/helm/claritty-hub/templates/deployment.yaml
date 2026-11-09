@@ -29,6 +29,12 @@ spec:
           ports:
             - name: http
               containerPort: 8822
+            - name: ops
+              containerPort: 8824
+            {{- if .Values.edge.enabled }}
+            - name: ingest
+              containerPort: 8823
+            {{- end }}
           env:
             - name: DATABASE_URL
               valueFrom:
@@ -42,6 +48,16 @@ spec:
                   key: CLARITTY_HUB_API_KEY
             - name: CLARITTY_REQUIRE_HUB_API_KEY
               value: "true"
+            - name: HUB_AUTO_MIGRATE
+              value: "false"
+            - name: HUB_MANAGEMENT_ADDR
+              value: ":8824"
+            {{- if .Values.edge.enabled }}
+            - name: HUB_INGEST_ADDR
+              value: ":8823"
+            - name: HUB_PUBLIC_URL
+              value: {{ printf "https://%s" .Values.edge.dashboardHost | quote }}
+            {{- end }}
             - name: SLACK_WEBHOOK_URL
               valueFrom:
                 secretKeyRef:
@@ -53,17 +69,17 @@ spec:
           startupProbe:
             httpGet:
               path: /healthz
-              port: http
+              port: ops
             failureThreshold: 30
             periodSeconds: 2
           livenessProbe:
             httpGet:
               path: /healthz
-              port: http
+              port: ops
           readinessProbe:
             httpGet:
               path: /readyz
-              port: http
+              port: ops
             timeoutSeconds: 2
           securityContext:
             allowPrivilegeEscalation: false
@@ -72,3 +88,6 @@ spec:
               drop: ["ALL"]
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
+        {{- if .Values.edge.enabled }}
+        {{- include "claritty-hub.oidcProxy" . | nindent 8 }}
+        {{- end }}

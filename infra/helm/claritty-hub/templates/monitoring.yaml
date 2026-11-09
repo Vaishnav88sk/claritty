@@ -1,0 +1,84 @@
+{{- if .Values.monitoring.enabled -}}
+{{- $monitoring := .Values.monitoring -}}
+{{- $threshold := int $monitoring.staleAfterSeconds -}}
+{{- if lt $threshold 30 -}}
+{{- fail "monitoring.staleAfterSeconds must be at least 30" -}}
+{{- end -}}
+{{- $service := printf "%s-metrics" .Release.Name -}}
+{{- $selector := printf "namespace=%q,service=%q" .Release.Namespace $service -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $service }}
+  labels:
+    app.kubernetes.io/name: claritty-hub
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  selector:
+    app.kubernetes.io/name: claritty-hub
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  ports:
+    - name: metrics
+      port: 8824
+      targetPort: ops
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ .Release.Name }}
+  {{- with $monitoring.labels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: claritty-hub
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: {{ $monitoring.interval }}
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ .Release.Name }}
+  {{- with $monitoring.labels }}
+  labels:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  groups:
+    - name: {{ .Release.Name }}.report-freshness
+      rules:
+        - alert: ClarittyHubMetricsUnavailable
+          expr: absent(up{ {{- $selector -}} }) or max(up{ {{- $selector -}} }) == 0
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: Claritty Hub report freshness metrics are unavailable
+        - alert: ClarittyClusterReportStale
+          expr: |
+            time() - max by (cluster) (
+              claritty_hub_cluster_last_report_received_timestamp_seconds{ {{- $selector -}} }
+            ) > {{ $threshold }}
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: 'Cluster {{ "{{ $labels.cluster }}" }} has stopped reporting to Claritty'
+        {{- range $monitoring.expectedClusters | uniq }}
+        - alert: ClarittyExpectedClusterMissing
+          expr: |
+            absent(claritty_hub_cluster_last_report_received_timestamp_seconds{ {{- $selector }},cluster={{ . | quote }}})
+            and on () (max(up{ {{- $selector -}} }) == 1)
+          for: {{ $threshold }}s
+          labels:
+            severity: warning
+            cluster: {{ . | quote }}
+          annotations:
+            summary: Expected cluster has yet to report to Claritty
+        {{- end }}
+{{- end }}

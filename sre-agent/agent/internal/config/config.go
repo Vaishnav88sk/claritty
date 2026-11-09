@@ -25,6 +25,9 @@ type Config struct {
 	EnableControl   bool
 	Namespaces      []string // empty = all namespaces
 	ListenAddr      string
+	LeaderLease     string
+	PodNamespace    string
+	PodName         string
 }
 
 // DefaultModelForProvider returns the recommended default model for a given provider.
@@ -60,6 +63,9 @@ func Load() *Config {
 		AnthropicAPIKey: getEnv("ANTHROPIC_API_KEY", ""),
 		OllamaHost:      getEnv("OLLAMA_HOST", "http://localhost:11434"),
 		ListenAddr:      getEnv("AGENT_LISTEN_ADDR", ":9090"),
+		LeaderLease:     os.Getenv("CLARITTY_AGENT_LEASE"),
+		PodNamespace:    os.Getenv("POD_NAMESPACE"),
+		PodName:         os.Getenv("POD_NAME"),
 	}
 	cfg.AutoWatch, _ = strconv.ParseBool(getEnv("CLARITTY_AGENT_AUTOWATCH", "false"))
 	cfg.EnableControl, _ = strconv.ParseBool(getEnv("CLARITTY_AGENT_ENABLE_CONTROL", "true"))

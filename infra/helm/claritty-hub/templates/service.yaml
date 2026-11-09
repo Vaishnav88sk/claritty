@@ -10,4 +10,11 @@ spec:
   ports:
     - name: http
       port: 8822
+      {{- if .Values.edge.enabled }}
+      targetPort: dashboard
+    - name: ingest
+      port: 8823
+      targetPort: ingest
+      {{- else }}
       targetPort: http
+      {{- end }}

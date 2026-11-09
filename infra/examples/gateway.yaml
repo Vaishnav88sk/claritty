@@ -1,0 +1,30 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: claritty
+  namespace: claritty
+spec:
+  gatewayClassName: your-gateway-class
+  listeners:
+    - name: dashboard-https
+      hostname: claritty.example.com
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: claritty-edge-tls
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: ingestion-https
+      hostname: reports.example.com
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: claritty-edge-tls
+      allowedRoutes:
+        namespaces:
+          from: Same

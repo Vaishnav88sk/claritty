@@ -27,7 +27,7 @@ spec:
 
       containers:
         - name: agent
-          image: vaishnav88sk/claritty-ai-sre-agent:v1.0.0
+          image: docker.io/vaishnav88sk/claritty-ai-sre-agent:v1.0.0
           imagePullPolicy: Always
           ports:
             - containerPort: 9090

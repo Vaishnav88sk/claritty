@@ -1,0 +1,81 @@
+{{- if .Values.edge.enabled -}}
+{{- $edge := .Values.edge -}}
+{{- $dashboard := required "edge.dashboardHost is required" $edge.dashboardHost -}}
+{{- $ingestion := required "edge.ingestionHost is required" $edge.ingestionHost -}}
+{{- if or (eq $dashboard $ingestion) (contains "*" $dashboard) (contains "*" $ingestion) -}}
+{{- fail "edge dashboard and ingestion require distinct, exact hostnames" -}}
+{{- end -}}
+{{- $gateway := required "edge.gateway.name is required" $edge.gateway.name -}}
+{{- if not $edge.gateway.dataPlanePodLabels -}}
+{{- fail "edge.gateway.dataPlanePodLabels must select the Gateway data plane pods" -}}
+{{- end -}}
+{{- if and .Values.monitoring.enabled (not .Values.monitoring.prometheusPodLabels) -}}
+{{- fail "monitoring.prometheusPodLabels must select the Prometheus pods" -}}
+{{- end -}}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-dashboard
+spec:
+  parentRefs:
+    - name: {{ $gateway }}
+      namespace: {{ default .Release.Namespace $edge.gateway.namespace }}
+      sectionName: {{ required "edge.gateway.dashboardListener is required" $edge.gateway.dashboardListener }}
+  hostnames: [{{ $dashboard | quote }}]
+  rules:
+    - backendRefs:
+        - name: {{ .Release.Name }}
+          port: 8822
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}-ingestion
+spec:
+  parentRefs:
+    - name: {{ $gateway }}
+      namespace: {{ default .Release.Namespace $edge.gateway.namespace }}
+      sectionName: {{ required "edge.gateway.ingestionListener is required" $edge.gateway.ingestionListener }}
+  hostnames: [{{ $ingestion | quote }}]
+  rules:
+    - matches:
+        - path:
+            type: Exact
+            value: /api/v1/incidents
+      backendRefs:
+        - name: {{ .Release.Name }}
+          port: 8823
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-edge
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: claritty-hub
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ required "edge.gateway.dataPlaneNamespace is required" $edge.gateway.dataPlaneNamespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml $edge.gateway.dataPlanePodLabels | nindent 14 }}
+      ports:
+        - port: 4180
+        - port: 8823
+    {{- if .Values.monitoring.enabled }}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ required "monitoring.prometheusNamespace is required with edge" .Values.monitoring.prometheusNamespace }}
+          podSelector:
+            matchLabels:
+              {{- toYaml .Values.monitoring.prometheusPodLabels | nindent 14 }}
+      ports:
+        - port: 8824
+    {{- end }}
+{{- end }}

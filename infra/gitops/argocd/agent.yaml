@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: claritty-agent
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Vaishnav88sk/claritty.git
+    targetRevision: "<release-tag-or-commit>"
+    path: infra/helm/claritty-agent
+    helm:
+      valuesObject:
+        image: "docker.io/vaishnav88sk/claritty-ai-sre-agent@sha256:<digest>"
+        existingSecret: claritty-agent-secrets
+        clusterName: production-us-east
+        hubURL: https://reports.example.com
+        replicaCount: 2
+        leaderElection:
+          enabled: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: claritty
+  ignoreDifferences:
+    - group: coordination.k8s.io
+      kind: Lease
+      name: claritty-agent
+      namespace: claritty
+      jsonPointers: [/spec]
+  syncPolicy:
+    syncOptions: [RespectIgnoreDifferences=true]

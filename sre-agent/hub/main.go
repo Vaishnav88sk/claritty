@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"net/http"
@@ -20,19 +21,43 @@ import (
 )
 
 func main() {
+	migrateOnly := flag.Bool("migrate", false, "apply database migrations and exit")
+	flag.Parse()
 	cfg := config.Load()
 
 	if cfg.DatabaseURL == "" {
 		log.Fatal("DATABASE_URL is required. Set it to your PostgreSQL connection string.")
 	}
-	if cfg.RequireAPIKey && strings.TrimSpace(cfg.HubAPIKey) == "" {
-		log.Fatal("CLARITTY_HUB_API_KEY is required when CLARITTY_REQUIRE_HUB_API_KEY is enabled")
+	if !*migrateOnly && (cfg.RequireAPIKey || cfg.IngestAddr != "") && strings.TrimSpace(cfg.HubAPIKey) == "" {
+		log.Fatal("CLARITTY_HUB_API_KEY is required for authenticated ingestion")
 	}
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	// ── Database ─────────────────────────────────────────────────────────────
-	store, err := db.New(cfg.DatabaseURL)
+	connectCtx, cancelConnect := context.WithTimeout(ctx, 10*time.Second)
+	store, err := db.Open(connectCtx, cfg.DatabaseURL)
+	cancelConnect()
 	if err != nil {
 		log.Fatalf("Database connection failed: %v\nCheck your DATABASE_URL setting.", err)
+	}
+	defer store.Close()
+	if *migrateOnly || cfg.AutoMigrate {
+		migrationCtx, cancelMigration := context.WithTimeout(ctx, 5*time.Minute)
+		err = store.Migrate(migrationCtx)
+		cancelMigration()
+		if err != nil {
+			log.Fatalf("Database migration failed: %v", err)
+		}
+	}
+	if *migrateOnly {
+		return
+	}
+	schemaCtx, cancelSchema := context.WithTimeout(ctx, 5*time.Second)
+	err = store.CheckSchema(schemaCtx)
+	cancelSchema()
+	if err != nil {
+		log.Fatalf("Database schema unavailable: %v", err)
 	}
 	log.Println("✓ Connected to PostgreSQL")
 
@@ -42,17 +67,23 @@ func main() {
 		log.Printf("✓ Slack alerts enabled → %s", cfg.SlackChannel)
 	}
 
-	hubBaseURL := fmt.Sprintf("http://localhost:%s", cfg.Port)
+	hubBaseURL := cfg.PublicURL
+	if hubBaseURL == "" {
+		hubBaseURL = fmt.Sprintf("http://localhost:%s", cfg.Port)
+	}
 
 	// ── Routes ────────────────────────────────────────────────────────────────
 	mux := http.NewServeMux()
 
-	// Health
-	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+	management := mux
+	if cfg.ManagementAddr != "" {
+		management = http.NewServeMux()
+	}
+	management.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprint(w, "ok")
 	})
-	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+	management.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), time.Second)
 		defer cancel()
 		if err := store.Ping(ctx); err != nil {
@@ -61,6 +92,7 @@ func main() {
 		}
 		fmt.Fprint(w, "ok")
 	})
+	management.Handle("GET /metrics", metricsHandler(store))
 
 	// REST API
 	apiHandler := api.New(store, slackClient, hubBaseURL, cfg.HubAPIKey)
@@ -74,30 +106,43 @@ func main() {
 	fs := http.FileServer(http.Dir(dashboardDir))
 	mux.Handle("/", fs)
 
-	// ── Server ────────────────────────────────────────────────────────────────
-	srv := &http.Server{
-		Addr:         ":" + cfg.Port,
-		Handler:      mux,
-		ReadTimeout:  30 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
+	dashboardAddr := ":" + cfg.Port
+	var dashboard http.Handler = mux
+	var servers []*http.Server
+	if cfg.IngestAddr != "" {
+		// The SSO sidecar shares the pod network namespace and reaches loopback.
+		dashboardAddr = "127.0.0.1:" + cfg.Port
+		dashboard = http.NewCrossOriginProtection().Handler(mux)
+		servers = append(servers, serve(cfg.IngestAddr, apiHandler.IngestionHandler()))
 	}
-
-	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
-
-	go func() {
-		log.Printf("🚀 Claritty Hub running → http://localhost:%s", cfg.Port)
-		log.Printf("   Dashboard  : http://localhost:%s/", cfg.Port)
-		log.Printf("   API        : http://localhost:%s/api/v1/", cfg.Port)
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server error: %v", err)
-		}
-	}()
+	servers = append(servers, serve(dashboardAddr, dashboard))
+	if cfg.ManagementAddr != "" {
+		servers = append(servers, serve(cfg.ManagementAddr, management))
+	}
 
 	<-ctx.Done()
 	log.Println("Shutdown signal received — stopping hub")
 	shutCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	_ = srv.Shutdown(shutCtx)
+	for _, server := range servers {
+		_ = server.Shutdown(shutCtx)
+	}
+}
+
+func serve(addr string, handler http.Handler) *http.Server {
+	server := &http.Server{
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+	}
+	go func() {
+		log.Printf("Hub listening on %s", addr)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Server error: %v", err)
+		}
+	}()
+	return server
 }

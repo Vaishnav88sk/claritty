@@ -1,0 +1,31 @@
+existingSecret: claritty-hub-secrets
+migrations:
+  existingSecret: claritty-hub-migration
+
+edge:
+  enabled: true
+  dashboardHost: claritty.example.com
+  ingestionHost: reports.example.com
+  gateway:
+    name: claritty
+    namespace: claritty
+    # Substitute the namespace and labels of your Gateway's data plane pods.
+    dataPlaneNamespace: gateway-system
+    dataPlanePodLabels:
+      app.kubernetes.io/name: gateway-proxy
+  oidc:
+    image: "quay.io/oauth2-proxy/oauth2-proxy:<pinned-version-or-digest>"
+    issuerURL: https://identity.example.com
+    existingSecret: claritty-oidc
+    allowedEmailDomains: ["example.com"]
+    # Replace with the actual trusted proxy address ranges.
+    trustedProxyCIDRs: ["192.0.2.0/24"]
+
+monitoring:
+  enabled: true
+  labels:
+    release: prometheus
+  expectedClusters: ["production-us-east"]
+  prometheusNamespace: monitoring
+  prometheusPodLabels:
+    app.kubernetes.io/name: prometheus

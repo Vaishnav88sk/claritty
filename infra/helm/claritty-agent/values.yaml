@@ -1,4 +1,5 @@
-# Set to the Agent image reference. Use a digest for production.
+# Published releases use docker.io/vaishnav88sk/claritty-ai-sre-agent by digest.
+# Set an explicit image when installing this chart from source.
 image: ""
 imagePullPolicy: IfNotPresent
 
@@ -12,6 +13,14 @@ scanIntervalSeconds: 300
 # Empty watches all namespaces. An explicit list scopes namespace-level RBAC.
 watchNamespaces: []
 controlEnabled: false
+replicaCount: 1
+leaderElection:
+  enabled: false
+
+monitoring:
+  enabled: false
+  labels: {}
+  interval: 30s
 
 llm:
   provider: groq

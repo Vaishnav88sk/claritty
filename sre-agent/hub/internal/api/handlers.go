@@ -35,6 +35,13 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/v1/stats", h.handleStats)
 }
 
+// IngestionHandler exposes the authenticated report endpoint on its own listener.
+func (h *Handler) IngestionHandler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /api/v1/incidents", h.handleIncidents)
+	return mux
+}
+
 // ─── Incidents ────────────────────────────────────────────────────────────────
 
 func (h *Handler) handleIncidents(w http.ResponseWriter, r *http.Request) {

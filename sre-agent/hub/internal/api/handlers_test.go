@@ -108,6 +108,27 @@ func TestReceiveIncident_Unauthorized(t *testing.T) {
 	}
 }
 
+func TestIngestionListenerOnlyAcceptsAuthenticatedReportPosts(t *testing.T) {
+	handler := New(nil, nil, "", "secret-key").IngestionHandler()
+	for _, tc := range []struct {
+		method, path string
+		status       int
+	}{
+		{http.MethodGet, "/", http.StatusNotFound},
+		{http.MethodGet, "/api/v1/incidents", http.StatusMethodNotAllowed},
+		{http.MethodPatch, "/api/v1/incidents/inc-123/status", http.StatusNotFound},
+		{http.MethodGet, "/metrics", http.StatusNotFound},
+		{http.MethodPost, "/api/v1/incidents", http.StatusUnauthorized},
+	} {
+		request := httptest.NewRequest(tc.method, tc.path, nil)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != tc.status {
+			t.Errorf("%s %s: got %d, want %d", tc.method, tc.path, response.Code, tc.status)
+		}
+	}
+}
+
 func TestGetStats(t *testing.T) {
 	mux, mock := setupTestApp(t)
 

@@ -1,0 +1,19 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: claritty-hub
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/Vaishnav88sk/claritty.git
+    targetRevision: "<release-tag-or-commit>"
+    path: infra/helm/claritty-hub
+    helm:
+      valueFiles:
+        - ../../examples/hub-production.values.yaml
+      valuesObject:
+        image: "docker.io/vaishnav88sk/claritty-hub@sha256:<digest>"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: claritty

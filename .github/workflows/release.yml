@@ -40,8 +40,8 @@ jobs:
       contents: write
       packages: write
     env:
-      HUB_IMAGE: docker.io/${{ vars.DOCKERHUB_USERNAME }}/claritty-hub
-      AGENT_IMAGE: docker.io/${{ vars.DOCKERHUB_USERNAME }}/claritty-ai-sre-agent
+      HUB_IMAGE: docker.io/vaishnav88sk/claritty-hub
+      AGENT_IMAGE: docker.io/vaishnav88sk/claritty-ai-sre-agent
 
     steps:
       - name: Checkout code

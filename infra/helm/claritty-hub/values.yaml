@@ -1,10 +1,45 @@
-# Set to the Hub image reference. Use a digest for production.
+# Published releases use docker.io/vaishnav88sk/claritty-hub by digest.
+# Set an explicit image when installing this chart from source.
 image: ""
 imagePullPolicy: IfNotPresent
 
 # Contains DATABASE_URL and CLARITTY_HUB_API_KEY. SLACK_WEBHOOK_URL is optional.
 existingSecret: ""
 slackChannel: "#sre-alerts"
+
+migrations:
+  enabled: true
+  # Optional separate Secret with DATABASE_URL for the schema owner.
+  existingSecret: ""
+
+edge:
+  enabled: false
+  dashboardHost: ""
+  ingestionHost: ""
+  gateway:
+    name: ""
+    namespace: ""
+    dashboardListener: dashboard-https
+    ingestionListener: ingestion-https
+    dataPlaneNamespace: ""
+    dataPlanePodLabels: {}
+  oidc:
+    image: ""
+    issuerURL: ""
+    existingSecret: ""
+    allowedEmailDomains: []
+    allowedGroups: []
+    trustedProxyCIDRs: []
+
+monitoring:
+  enabled: false
+  labels: {}
+  interval: 30s
+  staleAfterSeconds: 900
+  expectedClusters: []
+  # Required when edge NetworkPolicy is enabled.
+  prometheusNamespace: ""
+  prometheusPodLabels: {}
 
 resources:
   requests:

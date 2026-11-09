@@ -16,8 +16,8 @@ type Store struct {
 	db *sql.DB
 }
 
-// New opens a PostgreSQL connection and runs migrations.
-func New(databaseURL string) (*Store, error) {
+// Open connects to PostgreSQL without changing the schema.
+func Open(ctx context.Context, databaseURL string) (*Store, error) {
 	db, err := sql.Open("postgres", databaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("open db: %w", err)
@@ -26,16 +26,15 @@ func New(databaseURL string) (*Store, error) {
 	db.SetMaxIdleConns(5)
 	db.SetConnMaxLifetime(time.Hour)
 
-	if err := db.Ping(); err != nil {
+	if err := db.PingContext(ctx); err != nil {
+		_ = db.Close()
 		return nil, fmt.Errorf("ping db: %w", err)
 	}
 
-	s := &Store{db: db}
-	if err := s.migrate(); err != nil {
-		return nil, fmt.Errorf("migrate: %w", err)
-	}
-	return s, nil
+	return &Store{db: db}, nil
 }
+
+func (s *Store) Close() error { return s.db.Close() }
 
 // NewWithDB creates a Store with an existing sql.DB connection.
 // Useful for testing with tools like go-sqlmock.
@@ -47,70 +46,32 @@ func (s *Store) Ping(ctx context.Context) error {
 	return s.db.PingContext(ctx)
 }
 
-func (s *Store) migrate() error {
-	_, err := s.db.Exec(`
-	CREATE TABLE IF NOT EXISTS clusters (
-		name         TEXT PRIMARY KEY,
-		last_seen    TIMESTAMP NOT NULL,
-		health_score FLOAT,
-		ready_nodes  INT,
-		total_nodes  INT,
-		running_pods INT,
-		pending_pods INT,
-		failed_pods  INT,
-		crashloop    INT,
-		namespaces   TEXT
-	);
+type ReportReceipt struct {
+	Cluster   string
+	Timestamp float64
+}
 
-	CREATE TABLE IF NOT EXISTS incidents (
-		id                   TEXT PRIMARY KEY,
-		cluster              TEXT NOT NULL REFERENCES clusters(name),
-		namespace            TEXT,
-		severity             TEXT,
-		status               TEXT NOT NULL DEFAULT 'INVESTIGATING',
-		title                TEXT,
-		category             TEXT,
-		root_cause           TEXT,
-		contributing_factors JSONB,
-		affected_services    JSONB,
-		affected_namespaces  JSONB,
-		remediation_plan     JSONB,
-		llm_model            TEXT,
-		confidence           INT,
-		has_issue            BOOLEAN,
-		detected_at          TIMESTAMP NOT NULL,
-		resolved_at          TIMESTAMP,
-		scan_duration_secs   FLOAT
-	);
-
-	CREATE TABLE IF NOT EXISTS remediation_log (
-		id           SERIAL PRIMARY KEY,
-		incident_id  TEXT REFERENCES incidents(id),
-		cluster      TEXT,
-		step_number  INT,
-		description  TEXT,
-		command      TEXT,
-		status       TEXT,
-		executed_at  TIMESTAMP DEFAULT NOW()
-	);
-
-	CREATE INDEX IF NOT EXISTS idx_incidents_cluster ON incidents(cluster);
-	CREATE INDEX IF NOT EXISTS idx_incidents_detected_at ON incidents(detected_at DESC);
-	CREATE INDEX IF NOT EXISTS idx_incidents_severity ON incidents(severity);
-	`)
+// ReportReceipts returns server receipt times from successfully persisted reports.
+func (s *Store) ReportReceipts(ctx context.Context) ([]ReportReceipt, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT c.name, EXTRACT(EPOCH FROM latest.received_at)
+		FROM clusters c JOIN LATERAL (
+			SELECT received_at FROM incidents WHERE cluster = c.name
+			ORDER BY received_at DESC LIMIT 1
+		) latest ON true`)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	// Dynamic migration for Unified Evidence Model & Timeline fields
-	_, err = s.db.Exec(`
-		ALTER TABLE incidents ADD COLUMN IF NOT EXISTS evidence JSONB;
-		ALTER TABLE incidents ADD COLUMN IF NOT EXISTS conclusions JSONB;
-		ALTER TABLE incidents ADD COLUMN IF NOT EXISTS hypotheses JSONB;
-		ALTER TABLE incidents ADD COLUMN IF NOT EXISTS timeline JSONB;
-		ALTER TABLE incidents ADD COLUMN IF NOT EXISTS changes JSONB;
-	`)
-	return err
+	defer rows.Close()
+	var receipts []ReportReceipt
+	for rows.Next() {
+		var receipt ReportReceipt
+		if err := rows.Scan(&receipt.Cluster, &receipt.Timestamp); err != nil {
+			return nil, err
+		}
+		receipts = append(receipts, receipt)
+	}
+	return receipts, rows.Err()
 }
 
 // ─── Cluster operations ───────────────────────────────────────────────────────

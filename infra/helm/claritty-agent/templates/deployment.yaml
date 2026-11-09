@@ -1,4 +1,14 @@
 {{- $secret := required "existingSecret is required" .Values.existingSecret -}}
+{{- $replicas := int .Values.replicaCount -}}
+{{- if or (lt $replicas 1) (and (gt $replicas 1) (not .Values.leaderElection.enabled)) -}}
+{{- fail "replicaCount must be positive and requires leaderElection.enabled above one replica" -}}
+{{- end -}}
+{{- if and .Values.leaderElection.enabled (or (not .Values.autoWatch) .Values.controlEnabled) -}}
+{{- fail "leaderElection.enabled requires autoWatch and disabled HTTP scan controls" -}}
+{{- end -}}
+{{- if and .Values.monitoring.enabled .Values.controlEnabled -}}
+{{- fail "monitoring.enabled requires disabled HTTP scan controls" -}}
+{{- end -}}
 {{- $providerKeys := dict "groq" "GROQ_API_KEY" "openai" "OPENAI_API_KEY" "anthropic" "ANTHROPIC_API_KEY" "mistral" "MISTRAL_API_KEY" "ollama" "" "mock" "" -}}
 {{- if not (hasKey $providerKeys .Values.llm.provider) -}}
 {{- fail "llm.provider must be groq, openai, anthropic, mistral, ollama, or mock" -}}
@@ -8,9 +18,16 @@ kind: Deployment
 metadata:
   name: {{ .Release.Name }}
 spec:
-  replicas: 1
+  replicas: {{ $replicas }}
   strategy:
+    {{- if gt $replicas 1 }}
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+    {{- else }}
     type: Recreate
+    {{- end }}
   selector:
     matchLabels:
       app.kubernetes.io/name: claritty-agent
@@ -22,6 +39,16 @@ spec:
         app.kubernetes.io/instance: {{ .Release.Name }}
     spec:
       serviceAccountName: {{ .Release.Name }}
+      {{- if gt $replicas 1 }}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: claritty-agent
+              app.kubernetes.io/instance: {{ .Release.Name }}
+      {{- end }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
@@ -36,6 +63,18 @@ spec:
             - name: http
               containerPort: 9090
           env:
+            {{- if .Values.leaderElection.enabled }}
+            - name: CLARITTY_AGENT_LEASE
+              value: {{ .Release.Name | quote }}
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            {{- end }}
             - name: CLARITTY_CLUSTER_NAME
               value: {{ required "clusterName is required" .Values.clusterName | quote }}
             - name: CLARITTY_HUB_URL
