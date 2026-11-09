@@ -150,10 +150,6 @@ export GROQ_API_KEY="your_key_here"
 go run .
 ```
 
-### Publishing a release
-
-Create a public `claritty-hub` repository under your Docker Hub account. Set `DOCKERHUB_USERNAME` as a GitHub Actions repository variable and `DOCKERHUB_TOKEN` as an Actions secret with permission to push to that repository. A `v*` tag triggers the release workflow to publish the Hub image and attach the CLI binaries and Compose files to the GitHub release.
-
 ---
 
 ## 💻 Sample Examples & Output
