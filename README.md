@@ -116,6 +116,8 @@ Cluster C (qa)   ──► claritty-agent ─┘         │
 
 ## 🛠️ Getting Started (For Developers)
 
+See the [contribution guide](CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), and [security policy](SECURITY.md) for ways to work with the Claritty community.
+
 From a Claritty checkout, use Docker with the Docker Compose plugin to start the local Hub and PostgreSQL.
 
 ```bash
