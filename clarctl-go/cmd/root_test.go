@@ -6,8 +6,7 @@ import (
 )
 
 func TestRootCmd_HasSubCommands(t *testing.T) {
-	// Root command should have exactly the commands we added in init()
-	expectedCmds := []string{"scan", "watch", "status", "incidents", "show", "apply", "report", "configure"}
+	expectedCmds := []string{"scan", "watch", "status", "incidents", "show", "apply", "report", "configure", "up", "down"}
 
 	for _, name := range expectedCmds {
 		var found bool

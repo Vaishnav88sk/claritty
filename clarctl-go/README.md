@@ -26,6 +26,20 @@ clarctl -h
 
 ---
 
+## Local Hub and Web Dashboard
+
+Run these commands from a Claritty checkout with Docker running and the Docker Compose plugin installed.
+
+```bash
+clarctl up
+```
+
+`clarctl up` builds the Hub image, starts the Hub and PostgreSQL in the background, and waits for both services to be healthy. The Hub container serves the [web dashboard](http://localhost:8822). `clarctl down` removes the containers and keeps the PostgreSQL volume for the next start.
+
+Both commands work from subdirectories of the checkout and require no kubeconfig or LLM credentials. Deploy the SRE agent in each Kubernetes cluster you want to connect to the Hub.
+
+---
+
 ## ⚙️ Configuration
 
 `clarctl` requires an AI provider API key to perform root cause analysis. It supports Groq, OpenAI, and Mistral.

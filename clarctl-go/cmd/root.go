@@ -38,6 +38,8 @@ It continuously monitors your cluster, performs root-cause analysis, and
 suggests (or applies) automated remediation plans.
 
 Examples:
+  clarctl up                  Start the local Hub, web dashboard, and database
+  clarctl down                Stop the local Hub and database
   clarctl status              Show current cluster health
   clarctl scan                Run a single AI-SRE scan
   clarctl scan --apply        Scan and interactively apply remediation
@@ -47,11 +49,12 @@ Examples:
   clarctl show INC-ABCD1234   Show incident detail
   clarctl apply INC-ABCD1234  Apply remediation for an incident`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-		// Skip setup for help/completion commands and configure command
-		if cmd.Name() == "help" || cmd.Name() == "__complete" || cmd.Name() == "configure" {
+		switch cmd.Name() {
+		case "help", "__complete", "configure", "up", "down":
 			return nil
+		default:
+			return setup()
 		}
-		return setup()
 	},
 }
 
@@ -68,6 +71,10 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&modelFlag, "model", "m", "", "Override LLM model name (e.g. claude-3-7-sonnet-latest, gpt-4o)")
 	rootCmd.PersistentFlags().StringVarP(&providerFlag, "provider", "p", "", "Override LLM provider (groq, anthropic, openai, mistral, ollama)")
 	rootCmd.AddCommand(scanCmd, watchCmd, statusCmd, incidentsCmd, showCmd, applyCmd, reportCmd, configureCmd)
+	rootCmd.AddCommand(
+		newStackCommand("up", "Start the local Hub, web dashboard, and PostgreSQL", "Dashboard ready at http://localhost:8822", "up", "--build", "--wait"),
+		newStackCommand("down", "Stop the local stack and keep PostgreSQL data", "Local stack stopped. PostgreSQL data preserved.", "down"),
+	)
 }
 
 // setup initialises all shared dependencies.

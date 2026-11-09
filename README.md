@@ -113,6 +113,15 @@ Cluster C (qa)   ──► claritty-agent ─┘         │
 
 ## 🛠️ Getting Started (For Developers)
 
+From a Claritty checkout, use Docker with the Docker Compose plugin to start the local Hub and PostgreSQL.
+
+```bash
+make -C clarctl-go build
+./clarctl-go/dist/clarctl up
+```
+
+Open the [web dashboard](http://localhost:8822) once the stack is healthy. The Hub container serves the dashboard, and the SRE agent runs in the Kubernetes clusters you connect. Run `./clarctl-go/dist/clarctl down` to stop and remove the local containers while keeping PostgreSQL data.
+
 If you want to contribute, modify the code, or build from source:
 
 ```bash

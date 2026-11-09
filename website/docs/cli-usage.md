@@ -8,6 +8,10 @@ The `clarctl` CLI is the developer's gateway to Claritty. Run directly from your
 
 ## Basic Commands
 
+### Start and Stop the Local Hub
+
+Run `clarctl up` from a Claritty checkout with Docker and the Docker Compose plugin installed. It starts PostgreSQL and the Hub, which serves the [web dashboard](http://localhost:8822). Run `clarctl down` to remove the containers and keep PostgreSQL data for the next start. The monitoring agent runs in the Kubernetes cluster you connect to the Hub.
+
 ### Verify Installation
 Ensure the CLI is correctly installed and dynamically versioned:
 ```bash
